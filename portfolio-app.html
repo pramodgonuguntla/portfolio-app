@@ -282,9 +282,11 @@ async function loadData() {
     state.fundBlock = fund;
 
     // ── Progress S1 (optional — tab may not exist yet) ────────────────────────
+    // Accept any row that has a value in the second column (Month) — more permissive
     state.progress1 = (prog1Rows || []).filter(r => {
-      const n = r[Object.keys(r)[0]];
-      return n && !isNaN(parseFloat(n));
+      const keys = Object.keys(r);
+      const month = r[keys[1]];
+      return month && String(month).trim() !== '' && String(month) !== 'Month';
     });
 
     // ── Today's Trades — from Portfolio Changes sheet ─────────────────────────
@@ -310,8 +312,9 @@ async function loadData() {
 
     // ── Progress S2 ───────────────────────────────────────────────────────────
     state.progress2 = (prog2Rows || []).filter(r => {
-      const n = r[Object.keys(r)[0]];
-      return n && !isNaN(parseFloat(n));
+      const keys = Object.keys(r);
+      const month = r[keys[1]];
+      return month && String(month).trim() !== '' && String(month) !== 'Month';
     }).map(r => {
       const keys = Object.keys(r);
       return { num: r[keys[0]], month: r[keys[1]], target: parseFloat(r[keys[2]])||0,
