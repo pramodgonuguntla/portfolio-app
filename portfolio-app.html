@@ -282,12 +282,10 @@ async function loadData() {
     state.fundBlock = fund;
 
     // ── Progress S1 (optional — tab may not exist yet) ────────────────────────
-    // Accept any row that has a value in the second column (Month) — more permissive
-    state.progress1 = (prog1Rows || []).filter(r => {
-      const keys = Object.keys(r);
-      const month = r[keys[1]];
-      return month && String(month).trim() !== '' && String(month) !== 'Month';
-    });
+    // Accept any row that has at least one non-null value; skip fully-blank rows
+    state.progress1 = (prog1Rows || []).filter(r =>
+      Object.values(r).some(v => v !== null && v !== '')
+    );
 
     // ── Today's Trades — from Portfolio Changes sheet ─────────────────────────
     // Action rows only (NEW_BUY, CLOSE_LOT, CLOSE_PARTIAL); skip headers/blanks
@@ -338,6 +336,12 @@ async function loadData() {
         type,
       };
     }).filter(r => r.amount !== 0);
+
+    // Debug log — open browser console to see raw data
+    console.log('[VTP] progress1 rows:', state.progress1.length, state.progress1[0]);
+    console.log('[VTP] progress2 rows:', state.progress2.length);
+    console.log('[VTP] s2xirr rows:', state.s2xirr.length);
+    console.log('[VTP] fundBlock:', state.fundBlock);
 
     state.loaded = true;
     document.getElementById('last-updated').textContent =
