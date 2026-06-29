@@ -121,7 +121,6 @@
   </div>
   <div id="tabs">
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-    <div class="tab" onclick="showTab('strategy')">Strategy</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
     <div class="tab" onclick="showTab('progress')">Progress</div>
     <div class="tab" onclick="showTab('trades')">Today's Trades</div>
@@ -381,13 +380,12 @@ async function loadData() {
 function showTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabs = ['dashboard','strategy','open','progress','trades','closed'];
+  const tabs = ['dashboard','open','progress','trades','closed'];
   document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
   if (state.loaded) renderTab(tab);
 }
 function renderTab(tab) {
   if      (tab === 'dashboard') renderDashboard();
-  else if (tab === 'strategy')  renderStrategy();
   else if (tab === 'open')      renderOpen();
   else if (tab === 'progress')  renderProgress();
   else if (tab === 'trades')    renderTrades();
@@ -491,13 +489,13 @@ function renderDashboard() {
       `).join('')}
     </div>
     ` : ''}
+    ${strategySection()}
   `);
 }
 
-// ── Strategy ──────────────────────────────────────────────────────────────────
-function renderStrategy() {
+// ── Strategy breakdown (embedded in Dashboard) ────────────────────────────────
+function strategySection() {
   if (state.summary.length === 0) {
-    // Fall back to computing from closed trades directly
     const byStrat = {};
     for (const r of state.closed) {
       if (!byStrat[r.strategy]) byStrat[r.strategy] = { lots: 0, pat: 0, ebit: 0, tax: 0 };
@@ -506,7 +504,8 @@ function renderStrategy() {
       byStrat[r.strategy].ebit += r.ebit;
       byStrat[r.strategy].tax  += r.tax;
     }
-    let html = '';
+    if (Object.keys(byStrat).length === 0) return '';
+    let html = '<div class="sec-head">Strategy Performance <span class="badge">from Closed Trades</span></div>';
     for (const [s, d] of Object.entries(byStrat)) {
       html += `
       <div class="strat-card ${s.toLowerCase()}">
@@ -518,11 +517,10 @@ function renderStrategy() {
         </div>
       </div>`;
     }
-    setContent(`<div class="sec-head">Strategy Performance <span class="badge">from Closed Trades</span></div>${html}`);
-    return;
+    return html;
   }
 
-  let html = '';
+  let html = '<div class="sec-head">Strategy Performance <span class="badge">All FYs</span></div>';
   for (const s of ['S1','S2','S0']) {
     const rows = state.summary.filter(r => r.strategy === s);
     if (rows.length === 0) continue;
@@ -548,7 +546,7 @@ function renderStrategy() {
       `).join('')}
     </div>`;
   }
-  setContent(`<div class="sec-head">Strategy Performance <span class="badge">All FYs</span></div>${html}`);
+  return html;
 }
 
 // ── Open Positions ─────────────────────────────────────────────────────────────
