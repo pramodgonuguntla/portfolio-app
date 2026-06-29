@@ -100,6 +100,14 @@
   #sid-input:focus { border-color: var(--accent); }
   #save-sid { width: 100%; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .metric-row { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  .metric-row:last-child { border-bottom:none; }
+  .metric-label { color:var(--muted); }
+  .metric-value { font-weight:600; }
+  .loan-hero { background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .sub-tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .sub-tab { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; background:var(--surface2); border:1px solid var(--border); color:var(--muted); }
+  .sub-tab.active { background:rgba(59,130,246,0.15); border-color:var(--accent); color:var(--accent); }
 </style>
 </head>
 <body>
@@ -115,7 +123,7 @@
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="showTab('strategy')">Strategy</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
-    <div class="tab" onclick="showTab('progress')">Progress S1</div>
+    <div class="tab" onclick="showTab('progress')">Progress</div>
     <div class="tab" onclick="showTab('trades')">Today's Trades</div>
     <div class="tab" onclick="showTab('closed')">Closed Trades</div>
   </div>
@@ -138,8 +146,9 @@ const DEFAULT_SHEET_ID = '131zCFolNvpwyvNqWRI5bL9BJmZNUhLfVu1Ypy7XOvUg';
 let SHEET_ID = localStorage.getItem('vtp_sheet_id') || DEFAULT_SHEET_ID;
 
 // ── State ────────────────────────────────────────────────────────────────────
-let state = { open: [], closed: [], summary: [], fundBlock: {}, progress1: [], trades: [], loaded: false };
+let state = { open: [], closed: [], summary: [], fundBlock: {}, progress1: [], progress2: [], s2xirr: [], trades: [], loaded: false };
 let currentTab = 'dashboard';
+let progressSubTab = 's1';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = n => {
@@ -148,6 +157,7 @@ const fmt = n => {
   if (isNaN(num)) return n;
   return (num >= 0 ? '' : '-') + '₹' + Math.abs(num).toLocaleString('en-IN', {maximumFractionDigits: 0});
 };
+const fmtP = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
 const fmtN = n => {
   const num = parseFloat(n);
   if (isNaN(num)) return '—';
@@ -192,15 +202,22 @@ function parseSummary(rows) {
     }
     const label = String(fy || '').trim();
     if (['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
-         'Tax Pending','Ideal Fund Balance','Actual Balance','Actual Fund Balance']
+         'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
+         'Cash Out','Booked Funds','PAT']
         .some(k => label.includes(k))) {
       fund.byStrategy[label] = parseFloat(str) || 0;
+      // Also try to read S2-specific column
+      const s2val = row['S2'] !== undefined ? row['S2'] : null;
+      if (s2val !== null) {
+        if (!fund.s2) fund.s2 = {};
+        fund.s2[label] = parseFloat(s2val) || 0;
+      }
     }
     if (label.includes('Funds Input'))        fund.fundsInput = parseFloat(str) || 0;
     if (label.includes('Ideal'))              fund.ideal      = parseFloat(str) || 0;
     if (label.includes('Actual'))             fund.actual     = parseFloat(str) || 0;
     if (label.includes('Currently Invested')) fund.invested   = parseFloat(str) || 0;
-    if (label.includes('Tax Pending'))        fund.taxPending = parseFloat(str) || 0;
+    if (label.includes('Tax Pending') || label.includes('Tax Provision')) fund.taxPending = parseFloat(str) || 0;
   }
   return { summary, fund };
 }
@@ -211,12 +228,14 @@ async function loadData() {
   document.getElementById('last-updated').textContent = 'Refreshing…';
   try {
     // Portfolio tab = renamed from ZE7496; others may not exist in VTP GAS sheet yet
-    const [openRows, closedRows, summaryRows, prog1Rows, changesRows] = await Promise.all([
+    const [openRows, closedRows, summaryRows, prog1Rows, changesRows, prog2Rows, s2xirrRows] = await Promise.all([
       fetchSheet('Portfolio'),
       fetchSheet('Closed Trades'),
       fetchSheet('Yearly Summary').catch(() => []),
       fetchSheet('Progress_S1').catch(() => []),
       fetchSheet('Portfolio Changes').catch(() => []),
+      fetchSheet('Progress_S2').catch(() => []),
+      fetchSheet('S2_XIRR').catch(() => []),
     ]);
 
     // ── Open positions (Portfolio tab) ────────────────────────────────────────
@@ -288,6 +307,34 @@ async function loadData() {
           pat:      isBuy ? null : (parseFloat(r['PAT']) || 0),
         };
       });
+
+    // ── Progress S2 ───────────────────────────────────────────────────────────
+    state.progress2 = (prog2Rows || []).filter(r => {
+      const n = r[Object.keys(r)[0]];
+      return n && !isNaN(parseFloat(n));
+    }).map(r => {
+      const keys = Object.keys(r);
+      return { num: r[keys[0]], month: r[keys[1]], target: parseFloat(r[keys[2]])||0,
+               actual: parseFloat(r[keys[3]])||0, cum_target: parseFloat(r[keys[4]])||0,
+               cum_actual: parseFloat(r[keys[5]])||0 };
+    });
+
+    // ── S2_XIRR ───────────────────────────────────────────────────────────────
+    state.s2xirr = (s2xirrRows || []).filter(r => {
+      const t = r['Type'] || r[Object.keys(r)[4]] || r[Object.keys(r)[2]];
+      return t === 'Loan' || t === 'EMI';
+    }).map(r => {
+      const keys = Object.keys(r);
+      const type = r['Type'] || r[keys[4]] || r[keys[2]];
+      const isEMI = type === 'EMI';
+      return {
+        date:      r['Date'] || r[keys[0]],
+        amount:    parseFloat(r['Total EMI'] || r['Amount'] || r[keys[1]]) || 0,
+        principal: isEMI ? (parseFloat(r['Principal'] || r[keys[2]]) || null) : null,
+        interest:  isEMI ? (parseFloat(r['Interest']  || r[keys[3]]) || null) : null,
+        type,
+      };
+    }).filter(r => r.amount !== 0);
 
     state.loaded = true;
     document.getElementById('last-updated').textContent =
@@ -509,26 +556,33 @@ function renderOpen() {
   `);
 }
 
-// ── Progress S1 ───────────────────────────────────────────────────────────────
+// ── Progress (router) ─────────────────────────────────────────────────────────
 function renderProgress() {
+  const subTabsHtml = `<div class="sub-tabs">
+    <div class="sub-tab ${progressSubTab==='s1'?'active':''}" onclick="progressSubTab='s1';renderProgress()">S1</div>
+    <div class="sub-tab ${progressSubTab==='s2'?'active':''}" onclick="progressSubTab='s2';renderProgress()">S2</div>
+  </div>`;
+  if (progressSubTab === 's2') renderProgressS2(subTabsHtml);
+  else renderProgressS1(subTabsHtml);
+}
+
+function renderProgressS1(subTabsHtml) {
   if (!state.progress1 || state.progress1.length === 0) {
-    setContent(`
-      <div class="sec-head">Progress S1</div>
+    setContent(`${subTabsHtml}
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
         <div style="font-size:32px;margin-bottom:8px">📋</div>
         <div>Progress_S1 tab not found in this sheet yet.</div>
-      </div>
-    `);
+      </div>`);
     return;
   }
-  const rows     = state.progress1;
+  const rows = state.progress1;
   const totalLots = rows.length;
-  const booked   = rows.filter(r => {
+  const booked = rows.filter(r => {
     const keys = Object.keys(r);
     return keys.slice(3,13).some(k => String(r[k]||'').toLowerCase() === 'booked');
   }).length;
   const cols = rows.length > 0 ? Object.keys(rows[0]).slice(3, 13) : [];
-  setContent(`
+  setContent(`${subTabsHtml}
     <div class="sec-head">Progress S1 <span class="badge">${totalLots} lots</span></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -543,9 +597,7 @@ function renderProgress() {
         <tbody>
           ${rows.map(r => {
             const keys  = Object.keys(r);
-            const num   = r[keys[0]];
-            const month = r[keys[1]];
-            const inv   = r[keys[2]];
+            const num   = r[keys[0]], month = r[keys[1]], inv = r[keys[2]];
             const slots = keys.slice(3,13).map(k => r[k]);
             return `<tr>
               <td style="color:var(--muted)">${num}</td>
@@ -560,8 +612,96 @@ function renderProgress() {
           }).join('')}
         </tbody>
       </table>
+    </div>`);
+}
+
+function renderProgressS2(subTabsHtml) {
+  const loan    = loanAmount();
+  const emiPaid = Math.abs((state.fundBlock.s2||{})['Cash Out'] || 0);
+  const s2Pat   = (state.fundBlock.s2||{})['PAT'] || 0;
+  const shortfall = s2Pat - emiPaid;
+
+  const cfNet      = buildCF_Net();
+  const cfGross    = buildCF_Gross();
+  const cfInterest = buildCF_Interest();
+  const pNet      = (() => { const r=computeXIRR(cfNet);      return r!==null ? r*100 : null; })();
+  const pGross    = (() => { const r=computeXIRR(cfGross);    return r!==null ? r*100 : null; })();
+  const pInterest = (() => { const r=cfInterest?computeXIRR(cfInterest):null; return r!==null ? r*100 : null; })();
+
+  const s2PV_net = s2FundPV(true);
+
+  // Current month highlight
+  const now = new Date();
+  const cur = (state.progress2||[]).find(r => {
+    const d = new Date(String(r.month).replace("'"," 20"));
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+  }) || (state.progress2||[])[0];
+  const curHtml = cur ? (() => {
+    const diff = cur.actual - cur.target;
+    const good = diff >= 0;
+    return `<div style="background:${good?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};border:1.5px solid ${good?'rgba(16,185,129,0.4)':'rgba(239,68,68,0.3)'};border-radius:12px;padding:14px 16px;margin-bottom:8px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:${good?'var(--positive)':'var(--negative)'};margin-bottom:8px">${cur.month} — Current Month</div>
+      <div class="grid-3">
+        <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">Target</div><div style="font-size:22px;font-weight:700;margin-top:2px">${fmt(cur.target)}</div></div>
+        <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">Actual</div><div style="font-size:22px;font-weight:700;margin-top:2px;color:${cur.actual>0?(good?'var(--positive)':'var(--negative)'):'var(--muted)'}">${cur.actual>0?fmt(cur.actual):'—'}</div></div>
+        <div style="text-align:center"><div style="font-size:10px;color:var(--muted)">${good?'Surplus':'Shortfall'}</div><div style="font-size:22px;font-weight:700;margin-top:2px;color:${good?'var(--positive)':'var(--negative)'}">${fmt(Math.abs(diff))}</div><div style="font-size:9px;color:var(--muted);margin-top:1px">${cur.target?((cur.actual/cur.target)*100).toFixed(1)+'% of target':''}</div></div>
+      </div>
+    </div>`;
+  })() : '';
+
+  setContent(`${subTabsHtml}
+    <div class="loan-hero">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:10px;color:var(--s2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">S2 Loan</div>
+          <div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin-top:2px">${fmt(loan)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Principal deployed · 01-Jun-2026</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--muted)">EMI Paid</div>
+          <div style="font-size:18px;font-weight:700;color:var(--negative);margin-top:2px">${fmt(emiPaid)}</div>
+        </div>
+      </div>
     </div>
-  `);
+
+    <div class="card">
+      <div class="card-title">PAT vs EMI Paid</div>
+      <div class="grid-3">
+        <div class="mini-card"><div class="mini-label pos">PAT Earned</div><div class="mini-value pos">${fmt(s2Pat)}</div></div>
+        <div class="mini-card" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.25)"><div class="mini-label" style="color:var(--accent)">EMI Paid</div><div class="mini-value" style="color:var(--accent)">${fmt(emiPaid)}</div></div>
+        <div class="mini-card" style="background:${shortfall>=0?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)'};border-color:${shortfall>=0?'rgba(16,185,129,0.25)':'rgba(239,68,68,0.25)'}"><div class="mini-label" style="color:${shortfall>=0?'var(--positive)':'var(--negative)'}">${shortfall>=0?'Surplus':'Shortfall'}</div><div class="mini-value" style="color:${shortfall>=0?'var(--positive)':'var(--negative)'}">${fmtN(shortfall)}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">XIRR — S2 Strategy</div>
+      <div class="grid-3">
+        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Net (with loan)</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pNet!==null?cls(pNet):''}">${pNet!==null?fmtP(pNet):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">EMI netted in PV</div></div>
+        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Gross (own funds)</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pGross!==null?cls(pGross):''}">${pGross!==null?fmtP(pGross):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">No EMI drag</div></div>
+        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Interest-only</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pInterest!==null?cls(pInterest):''}">${pInterest!==null?fmtP(pInterest):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">${pInterest===null?'Fill Interest col':'Principal neutral'}</div></div>
+      </div>
+    </div>
+
+    <div class="sec-head" style="margin-top:4px">Monthly PAT Progress</div>
+    ${curHtml}
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Month</th><th>Target</th><th>Actual</th><th>Cum Target</th><th>Cum Actual</th></tr></thead>
+        <tbody>${(state.progress2||[]).map(r => {
+          const hit = r.actual >= r.target && r.actual > 0;
+          const partial = r.actual > 0 && r.actual < r.target;
+          const rowClr = hit ? 'rgba(16,185,129,0.08)' : partial ? 'rgba(251,191,36,0.08)' : '';
+          return `<tr style="background:${rowClr}">
+            <td style="color:var(--muted)">${r.num}</td>
+            <td style="font-weight:600">${r.month}</td>
+            <td>${fmt(r.target)}</td>
+            <td class="${r.actual>0?cls(r.actual-r.target+0.01):''}">${r.actual>0?fmt(r.actual):'—'}</td>
+            <td style="color:var(--muted)">${fmt(r.cum_target)}</td>
+            <td class="${r.cum_actual>0?cls(r.cum_actual-r.cum_target+0.01):''}">${r.cum_actual>0?fmt(r.cum_actual):'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`);
 }
 
 // ── Today's Trades (from Portfolio Changes) ───────────────────────────────────
@@ -650,6 +790,75 @@ function saveSheetId() {
   document.getElementById('config').classList.remove('open');
   loadData();
 }
+// ── XIRR ─────────────────────────────────────────────────────────────────────
+const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parsePortDate(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  let m = s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m) { const mo = MONTHS[m[2].toLowerCase()]; if (mo!==undefined) return new Date(+m[3], mo, +m[1]); }
+  // Google Sheets date serial (days since Dec 30 1899)
+  const n = parseFloat(s);
+  if (!isNaN(n) && n > 40000) return new Date((n - 25569) * 86400 * 1000);
+  return null;
+}
+function computeXIRR(cfs, guess=0.1) {
+  if (!cfs || cfs.length < 2) return null;
+  const d0 = cfs[0].date.getTime();
+  const MS_YEAR = 365.25 * 24 * 3600 * 1000;
+  const npv  = r => cfs.reduce((s, cf) => s + cf.amount / Math.pow(1+r, (cf.date.getTime()-d0)/MS_YEAR), 0);
+  const dnpv = r => cfs.reduce((s, cf) => { const t=(cf.date.getTime()-d0)/MS_YEAR; return s - t*cf.amount/Math.pow(1+r,t+1); }, 0);
+  let r = guess;
+  for (let i=0; i<200; i++) { const f=npv(r),df=dnpv(r); if(Math.abs(df)<1e-12) break; const r2=r-f/df; if(Math.abs(r2-r)<1e-8) return r2; r=r2; }
+  return null;
+}
+function s2FundPV(includeEmi) {
+  const s2 = (state.fundBlock.s2 || {});
+  const invested = Math.abs(s2['Currently Invested'] || state.fundBlock.invested || 0);
+  const ideal    = s2['Ideal Fund Balance'] || s2['Ideal'] || state.fundBlock.ideal || 0;
+  const taxProv  = s2['Tax Provision'] || s2['Tax Pending'] || state.fundBlock.taxPending || 0;
+  const cashOut  = Math.abs(s2['Cash Out'] || 0);
+  return invested + ideal - taxProv + (includeEmi ? 0 : cashOut);
+}
+function loanDate() {
+  for (const r of state.s2xirr) {
+    if ((r.type||'').toLowerCase() === 'loan') { const d = parsePortDate(r.date); if (d) return d; }
+  }
+  return new Date(2026, 5, 1);
+}
+function loanAmount() {
+  for (const r of state.s2xirr) {
+    if ((r.type||'').toLowerCase() === 'loan') return Math.abs(r.amount);
+  }
+  return 713000;
+}
+function buildCF_Net() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  return [{ date: loanDate(), amount: -loanAmount() }, { date: today, amount: s2FundPV(true) }];
+}
+function buildCF_Gross() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  return [{ date: loanDate(), amount: -loanAmount() }, { date: today, amount: s2FundPV(false) }];
+}
+function buildCF_Interest() {
+  const cfs = [{ date: loanDate(), amount: -loanAmount() }];
+  let hasInterest = false;
+  for (const r of state.s2xirr) {
+    if ((r.type||'').toLowerCase() !== 'emi' || r.interest == null) continue;
+    const d = parsePortDate(r.date);
+    if (d) { cfs.push({ date: d, amount: -Math.abs(r.interest) }); hasInterest = true; }
+  }
+  if (!hasInterest) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  cfs.push({ date: today, amount: s2FundPV(false) });
+  cfs.sort((a,b) => a.date - b.date);
+  return cfs;
+}
+
 function setContent(html) { document.getElementById('content').innerHTML = html; }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
