@@ -174,7 +174,8 @@ async function fetchSheet(sheetName) {
   const text = await res.text();
   const json = JSON.parse(text.replace(/^[^(]+\(/, '').replace(/\);?$/, ''));
   if (!json.table || !json.table.rows) return [];
-  const cols = json.table.cols.map(c => c.label);
+  // Use positional keys (col0, col1…) when labels are blank to avoid key collisions
+  const cols = json.table.cols.map((c, i) => c.label || `col${i}`);
   return json.table.rows.map(r => {
     const obj = {};
     cols.forEach((c, i) => { obj[c] = r.c[i] ? (r.c[i].v !== null ? r.c[i].v : r.c[i].f) : null; });
@@ -292,10 +293,13 @@ async function loadData() {
     state.fundBlock = fund;
 
     // ── Progress S1 (optional — tab may not exist yet) ────────────────────────
-    // Accept any row that has at least one non-null value; skip fully-blank rows
-    state.progress1 = (prog1Rows || []).filter(r =>
-      Object.values(r).some(v => v !== null && v !== '')
-    );
+    // gviz returns all cols with positional keys (col0, col1…) when headers are blank/numeric.
+    // Row 0 is the header row itself (Month, Inv, 1..10); skip it + skip fully-blank rows.
+    state.progress1 = (prog1Rows || []).filter(r => {
+      const keys = Object.keys(r);
+      const col1val = String(r[keys[1]] || '').trim();
+      return col1val !== '' && col1val !== 'Month';  // skip blank rows and header row
+    });
 
     // ── Today's Trades — from Portfolio Changes sheet ─────────────────────────
     // Action rows only (NEW_BUY, CLOSE_LOT, CLOSE_PARTIAL); skip headers/blanks
