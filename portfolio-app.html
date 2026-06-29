@@ -183,41 +183,48 @@ async function fetchSheet(sheetName) {
 }
 
 // ── Parse Yearly Summary ──────────────────────────────────────────────────────
+// Sheet structure (gviz headers from row 1):
+//   col A='FY'  col B='Strategy'  col C='Lots'  col D='Buy Value' ... col F='Sell Value'
+// Fund block rows (rows 9-16): col A=null, col B=label, col C=S2 value, col D=S1, col F=Total
 function parseSummary(rows) {
   const summary = [];
-  const fund    = { byStrategy: {} };
+  const fund    = { byStrategy: {}, s2: {} };
+  const FUND_LABELS = ['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
+       'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
+       'Cash Out','Booked Funds','PAT'];
   for (const row of rows) {
     const keys = Object.keys(row);
-    const fy   = row['FY']       || row[keys[0]];
-    const str  = row['Strategy'] || row[keys[1]];
-    const pat  = parseFloat(row['PAT'])        || 0;
-    const pbt  = parseFloat(row['PBT'])        || 0;
-    const tax  = parseFloat(row['Tax'])        || 0;
-    const lots = parseFloat(row['Lots'])       || 0;
-    const bv   = parseFloat(row['Buy Value'])  || 0;
-    const sv   = parseFloat(row['Sell Value']) || 0;
-    const ebit = parseFloat(row['EBIT'])       || 0;
-    if (fy && str && String(fy).startsWith('FY')) {
-      summary.push({ fy, strategy: str, lots, buyValue: bv, sellValue: sv, ebit, pbt, tax, pat });
+    const colA = row['FY']         != null ? row['FY']         : row[keys[0]];  // FY or null
+    const colB = row['Strategy']   != null ? row['Strategy']   : row[keys[1]];  // Strategy or label
+    const colC = row['Lots']       != null ? row['Lots']       : row[keys[2]];  // S2 value
+    const colF = row['Sell Value'] != null ? row['Sell Value'] : row[keys[5]];  // Total value
+
+    // FY trade rows
+    if (colA && String(colA).startsWith('FY')) {
+      const pat  = parseFloat(row['PAT'])        || 0;
+      const pbt  = parseFloat(row['PBT'])        || 0;
+      const tax  = parseFloat(row['Tax'])        || 0;
+      const lots = parseFloat(colC)              || 0;
+      const bv   = parseFloat(row['Buy Value'])  || 0;
+      const sv   = parseFloat(colF)              || 0;
+      const ebit = parseFloat(row['EBIT'])       || 0;
+      summary.push({ fy: colA, strategy: colB, lots, buyValue: bv, sellValue: sv, ebit, pbt, tax, pat });
     }
-    const label = String(fy || '').trim();
-    if (['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
-         'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
-         'Cash Out','Booked Funds','PAT']
-        .some(k => label.includes(k))) {
-      fund.byStrategy[label] = parseFloat(str) || 0;
-      // Also try to read S2-specific column
-      const s2val = row['S2'] !== undefined ? row['S2'] : null;
-      if (s2val !== null) {
-        if (!fund.s2) fund.s2 = {};
-        fund.s2[label] = parseFloat(s2val) || 0;
-      }
+
+    // Fund block rows: col A is blank, col B has the label, col C = S2, col F = Total
+    const isBlankA = colA == null || String(colA).trim() === '';
+    const label = String(isBlankA ? (colB || '') : '').trim();
+    if (label && FUND_LABELS.some(k => label.includes(k))) {
+      const s2val  = parseFloat(colC) || 0;
+      const totval = parseFloat(colF) || s2val;
+      fund.s2[label]           = s2val;
+      fund.byStrategy[label]   = totval;
+      if (label.includes('Funds Input'))        fund.fundsInput = totval;
+      if (label.includes('Ideal'))              fund.ideal      = totval;
+      if (label.includes('Actual Fund Balance'))fund.actual     = totval;
+      if (label.includes('Currently Invested')) fund.invested   = s2val;
+      if (label.includes('Tax Pending') || label.includes('Tax Provision')) fund.taxPending = s2val;
     }
-    if (label.includes('Funds Input'))        fund.fundsInput = parseFloat(str) || 0;
-    if (label.includes('Ideal'))              fund.ideal      = parseFloat(str) || 0;
-    if (label.includes('Actual'))             fund.actual     = parseFloat(str) || 0;
-    if (label.includes('Currently Invested')) fund.invested   = parseFloat(str) || 0;
-    if (label.includes('Tax Pending') || label.includes('Tax Provision')) fund.taxPending = parseFloat(str) || 0;
   }
   return { summary, fund };
 }
@@ -228,15 +235,18 @@ async function loadData() {
   document.getElementById('last-updated').textContent = 'Refreshing…';
   try {
     // Portfolio tab = renamed from ZE7496; others may not exist in VTP GAS sheet yet
-    const [openRows, closedRows, summaryRows, prog1Rows, changesRows, prog2Rows, s2xirrRows] = await Promise.all([
+    const [openRows, closedRows, summaryRows, prog1RawA, prog1RawB, changesRows, prog2Rows, s2xirrRows] = await Promise.all([
       fetchSheet('Portfolio'),
       fetchSheet('Closed Trades'),
       fetchSheet('Yearly Summary').catch(() => []),
-      fetchSheet('Progress_S1').catch(() => []),
+      fetchSheet('Progress_S1').catch(() => []),   // underscore variant
+      fetchSheet('Progress S1').catch(() => []),   // space variant fallback
       fetchSheet('Portfolio Changes').catch(() => []),
       fetchSheet('Progress_S2').catch(() => []),
       fetchSheet('S2_XIRR').catch(() => []),
     ]);
+    // Use whichever variant returned data
+    const prog1Rows = (prog1RawA && prog1RawA.length > 0) ? prog1RawA : prog1RawB;
 
     // ── Open positions (Portfolio tab) ────────────────────────────────────────
     // Columns: Ref | Buy Date | Scrip | Qty | Price | Value | Charge | Strategy
@@ -321,12 +331,15 @@ async function loadData() {
     });
 
     // ── S2_XIRR ───────────────────────────────────────────────────────────────
+    // Type col may be C (old header row 2) or E (new EMI header row 8).
+    // Use .find() to avoid || short-circuiting on numeric Principal value in col C.
     state.s2xirr = (s2xirrRows || []).filter(r => {
-      const t = r['Type'] || r[Object.keys(r)[4]] || r[Object.keys(r)[2]];
-      return t === 'Loan' || t === 'EMI';
+      const keys = Object.keys(r);
+      const t = [r['Type'], r[keys[4]], r[keys[2]]].find(v => v === 'Loan' || v === 'EMI');
+      return !!t;
     }).map(r => {
       const keys = Object.keys(r);
-      const type = r['Type'] || r[keys[4]] || r[keys[2]];
+      const type = [r['Type'], r[keys[4]], r[keys[2]]].find(v => v === 'Loan' || v === 'EMI');
       const isEMI = type === 'EMI';
       return {
         date:      r['Date'] || r[keys[0]],
