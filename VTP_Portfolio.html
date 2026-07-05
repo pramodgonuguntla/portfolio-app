@@ -492,12 +492,22 @@ async function loadData() {
       inv:   parseAmt(val(r[2])),
       slots: Array.from({length: 10}, (_, i) => String(val(r[3 + i]) ?? '').trim()),
     }));
-    state.prog1Book = (prog1Rows || []).filter(r => String(val(r[14]) || '').trim() !== '')
-      .map(r => ({
-        label: String(val(r[14])).trim(),
-        cnt:   parseAmt(val(r[15])),
-        cum:   parseAmt(val(r[16])),
-      }));
+    // Locate the booking-projection table by finding the "Consol …" label
+    // column (currently P; auto-detects if columns shift)
+    let bookCol = -1;
+    for (const r of (prog1Rows || [])) {
+      for (let c = 12; c <= 22; c++) {
+        if (/^consol/i.test(String(val(r[c]) || '').trim())) { bookCol = c; break; }
+      }
+      if (bookCol >= 0) break;
+    }
+    state.prog1Book = bookCol < 0 ? [] :
+      (prog1Rows || []).filter(r => String(val(r[bookCol]) || '').trim() !== '')
+        .map(r => ({
+          label: String(val(r[bookCol])).trim(),
+          cnt:   parseAmt(val(r[bookCol + 1])),
+          cum:   parseAmt(val(r[bookCol + 2])),
+        }));
 
     // ── Progress S2 ───────────────────────────────────────────────────────────
     state.progress2 = (prog2Rows || []).filter(r => {
