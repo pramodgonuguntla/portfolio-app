@@ -695,10 +695,15 @@ function renderDashboard() {
         ${state.funds && state.funds.live != null ? `
         <div class="mini-value ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' (Δ ' + fmtN(state.funds.live - cash) + ')' : ''}</div>
-        <div style="font-size:10px;color:var(--accent);margin-top:4px;cursor:pointer" onclick="syncBalance()">↓ write to sheet</div>
+        <div style="font-size:10px;margin-top:4px">
+          <span id="bal-refresh" style="color:var(--accent2);cursor:pointer" onclick="refreshBalance()">↻ refresh</span>
+          &nbsp;·&nbsp;
+          <span style="color:var(--accent);cursor:pointer" onclick="syncBalance()">↓ write to sheet</span>
+        </div>
         ` : `
         <div class="mini-value ${cls(cash)}">${fmt(cash)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">from sheet — Kite live n/a</div>
+        ${!localWB ? `<div style="font-size:10px;color:var(--accent2);margin-top:4px;cursor:pointer" id="bal-refresh" onclick="refreshBalance()">↻ retry Kite</div>` : ''}
         `}
       </div>
     </div>
@@ -1278,6 +1283,18 @@ async function runVtp() {
   } finally {
     btn.disabled = false; btn.textContent = '▶ Run VTP';
   }
+}
+
+// Balance-only refresh — one margins call, no sheets reload, no VTP run
+async function refreshBalance() {
+  const el = document.getElementById('bal-refresh');
+  if (el) el.textContent = '⏳';
+  try {
+    state.funds = (await waGet({ fn: 'funds' })).funds || null;
+  } catch (e) {
+    alert('Balance fetch failed: ' + e.message);
+  }
+  renderDashboard();
 }
 
 async function syncBalance() {
