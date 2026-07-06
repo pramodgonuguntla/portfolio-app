@@ -141,12 +141,10 @@
     <div style="display:flex;gap:8px">
       <button id="kite-btn" onclick="kiteLogin()" title="Refresh Kite token">🔑</button>
       <button id="runvtp-btn" onclick="runVtp()" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶ Run VTP</button>
-      <button id="local-btn" onclick="toggleLocal()">📂 Local</button>
       <button id="refresh-btn" onclick="loadData()">↻</button>
       <button id="settings-btn" onclick="document.getElementById('config').classList.add('open')">⚙</button>
     </div>
   </div>
-  <input type="file" id="local-file" accept=".xlsx,.xlsm" style="display:none" onchange="loadLocalFile(this.files[0])"/>
   <div id="tabs">
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="showTab('ps2')">Progress S2</div>
@@ -178,7 +176,6 @@
     <button id="save-sid" onclick="saveSettings()">Save & Load</button>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── Config ───────────────────────────────────────────────────────────────────
 // Points to the VTP GAS sheet ("My Equity" — same sheet as the daily runner)
@@ -236,100 +233,13 @@ function statusPill(st) {
   return `<span class="st-pill ${c}">${label}</span>`;
 }
 
-// ── Local workbook (testing) ──────────────────────────────────────────────────
-// 📂 Local loads My Equity.xlsx via SheetJS; both fetchers then serve from it.
-// Click the button again to switch back to the Google Sheet.
-let localWB = null, localName = '';
-
-// Load SheetJS on demand with CDN fallbacks (static tag can be blocked/offline)
-let sheetJsPromise = null;
-function ensureSheetJS() {
-  if (window.XLSX) return Promise.resolve();
-  if (sheetJsPromise) return sheetJsPromise;
-  const srcs = [
-    'xlsx.full.min.js',   // local copy in the same folder — works offline
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
-  ];
-  sheetJsPromise = new Promise((resolve, reject) => {
-    let i = 0;
-    const tryNext = () => {
-      if (i >= srcs.length) {
-        sheetJsPromise = null;
-        reject(new Error('Could not load the XLSX library from any CDN — check internet connection / content blockers'));
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = srcs[i++];
-      s.onload  = () => window.XLSX ? resolve() : tryNext();
-      s.onerror = tryNext;
-      document.head.appendChild(s);
-    };
-    tryNext();
-  });
-  return sheetJsPromise;
-}
-
-function toggleLocal() {
-  if (localWB) {
-    localWB = null; localName = '';
-    document.getElementById('local-btn').textContent = '📂 Local';
-    document.getElementById('local-btn').classList.remove('local-on');
-    loadData();
-  } else {
-    document.getElementById('local-file').click();
-  }
-}
-function loadLocalFile(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async e => {
-    try {
-      await ensureSheetJS();
-      localWB = XLSX.read(e.target.result, { type: 'array', cellDates: false });
-      localName = file.name;
-      document.getElementById('local-btn').textContent = '☁ Back to Sheet';
-      document.getElementById('local-btn').classList.add('local-on');
-      loadData();
-    } catch (err) {
-      alert('Could not read file: ' + err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  document.getElementById('local-file').value = '';   // allow re-selecting same file
-}
-// Worksheet → rows of gviz-style cells [{v, f}]
-function wsCells_(ws) {
-  if (!ws || !ws['!ref']) return [];
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  const rows = [];
-  for (let R = range.s.r; R <= range.e.r; R++) {
-    const row = [];
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
-      row.push(cell ? { v: cell.v != null ? cell.v : null, f: cell.w != null ? cell.w : null } : null);
-    }
-    rows.push(row);
-  }
-  return rows;
-}
+// Local-file testing mode removed 2026-07-07 — localWB kept as a constant so
+// the guards below stay inert (always live-sheet mode).
+const localWB = null;
 
 // ── Sheets API ────────────────────────────────────────────────────────────────
 // Label-keyed rows (for sheets with unique headers: Yearly Summary, Progress…)
 async function fetchSheet(sheetName) {
-  if (localWB) {
-    const ws = localWB.Sheets[sheetName];
-    if (!ws) return [];
-    const cells = wsCells_(ws);
-    if (cells.length === 0) return [];
-    const labels = cells[0].map((c, i) => ((c && c.v != null) ? String(c.v).trim() : '') || `col${i}`);
-    return cells.slice(1).map(r => {
-      const obj = {};
-      labels.forEach((L, i) => { const c = r[i]; obj[L] = c ? (c.v != null ? c.v : c.f) : null; });
-      return obj;
-    });
-  }
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${sheetName}: HTTP ${res.status}`);
@@ -347,11 +257,6 @@ async function fetchSheet(sheetName) {
 // Positional rows (VTP_Repo, Closed Trades, Actions) — immune to duplicate
 // header labels (Closed Trades has Qty/Price/Value/Charge twice: buy + sell)
 async function fetchSheetRows(sheetName) {
-  if (localWB) {
-    const ws = localWB.Sheets[sheetName];
-    if (!ws) throw new Error('Sheet not found in local file: ' + sheetName);
-    return wsCells_(ws).slice(1);   // drop header row — matches gviz headers=1
-  }
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1&sheet=${encodeURIComponent(sheetName)}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch ${sheetName}: HTTP ${res.status}`);
@@ -603,9 +508,8 @@ async function loadData() {
     console.log('[VTP] closed:', state.closed.length, 'actions:', state.actions.length);
 
     state.loaded = true;
-    document.getElementById('last-updated').textContent = localWB
-      ? '📂 ' + localName
-      : 'Updated ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
     renderTab(currentTab);
 
   } catch (e) {
