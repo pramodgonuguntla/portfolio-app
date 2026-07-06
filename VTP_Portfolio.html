@@ -1011,22 +1011,40 @@ function renderProgressS2() {
 let prosSort = { key: 'away', dir: 1 };
 function setProsSort(key) { prosSort = prosSort.key === key ? { key, dir: -prosSort.dir } : { key, dir: 1 }; renderProspects(); }
 
+// CMP-only refresh — recomputes the band from live LTPs without a VTP run
+async function refreshProspects() {
+  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  const b = document.getElementById('pros-refresh');
+  if (b) b.textContent = '⏳ fetching CMPs…';
+  try {
+    const j = await waPost({ fn: 'prospects' });
+    state.prospects = j.prospects || [];
+    renderProspects();
+  } catch (e) {
+    alert('Refresh failed: ' + e.message);
+    renderProspects();
+  }
+}
+const prosRefreshBtn = () => localWB ? '' :
+  `<span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>`;
+
 function renderProspects() {
   const rows = state.prospects || [];
   if (rows.length === 0) {
     setContent(`
-      <div class="sec-head">S2 Prospects</div>
+      <div class="sec-head">S2 Prospects ${prosRefreshBtn()}</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
         <div style="font-size:32px;margin-bottom:8px">🔭</div>
         <div>No watchlist stocks in the 9–13% band right now.</div>
-        <div style="font-size:11px;margin-top:6px">Refreshed on every daily run.</div>
+        <div style="font-size:11px;margin-top:6px">↻ refresh CMP re-checks live prices without a full VTP run.</div>
       </div>`);
     return;
   }
   const sorted = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
   setContent(`
     <div class="sec-head">S2 Prospects <span class="badge">${rows.length} in 9–13% band</span>
-      <span class="badge">as of ${rows[0].updated || '—'}</span></div>
+      <span class="badge">as of ${rows[0].updated || '—'}</span>
+      ${prosRefreshBtn()}</div>
     <div class="card" style="padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--muted)">
       Watchlist (gtt_placed) stocks whose CMP is 9–13% above the S1 buy trigger — far enough not to
       collide with the buy GTT, close enough to value. Suggested lot ≈ ₹50,000.
