@@ -182,10 +182,10 @@
 // Data model version: repo-2026-07-04 (15-col VTP_Repo, lowercase statuses)
 const DEFAULT_SHEET_ID = '131zCFolNvpwyvNqWRI5bL9BJmZNUhLfVu1Ypy7XOvUg';
 const DEFAULT_WA_URL   = 'https://script.google.com/macros/s/AKfycbxYxiBuyPNS19E20X25auKmC7ykJToiIBELyl6_-J5_3irLaGF_l_Aof2z2e0pZsSEB0g/exec';
-const DEFAULT_WA_TOKEN = 'Pramod@234';
+// Token is NEVER hardcoded — set it once via ⚙ (stored in this device's localStorage)
 let SHEET_ID = localStorage.getItem('vtp_sheet_id') || DEFAULT_SHEET_ID;
 let WA_URL   = localStorage.getItem('vtp_wa_url')   || DEFAULT_WA_URL;
-let WA_TOKEN = localStorage.getItem('vtp_wa_token') || DEFAULT_WA_TOKEN;
+let WA_TOKEN = localStorage.getItem('vtp_wa_token') || '';
 
 // ── State ────────────────────────────────────────────────────────────────────
 let state = { repo: [], open: [], closed: [], summary: [], fundBlock: {}, progress1: [], progress2: [], s2xirr: [], actions: [], loaded: false };
