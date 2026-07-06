@@ -122,6 +122,9 @@
   .sub-tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .sub-tab { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; background:var(--surface2); border:1px solid var(--border); color:var(--muted); }
   .sub-tab.active { background:rgba(59,130,246,0.15); border-color:var(--accent); color:var(--accent); }
+  .inp { width:100%; max-width:100%; display:block; box-sizing:border-box; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:11px 12px; color:var(--text); font-size:14px; margin-bottom:8px; -webkit-appearance:none; appearance:none; min-height:44px; }
+  .inp:focus { border-color: var(--accent); outline: none; }
+  .mini-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; color:var(--text); font-size:12px; font-weight:600; cursor:pointer; }
   .act-status { font-size:10px; font-weight:700; padding:3px 7px; border-radius:6px; }
   .act-pending { background: rgba(245,158,11,0.15); color:#fbbf24; }
   .act-done    { background: rgba(16,185,129,0.15); color:#34d399; }
@@ -679,7 +682,7 @@ function renderDashboard() {
   }).join('');
 
   setContent(`
-    <div class="grid-3">
+    <div class="grid-2">
       <div class="mini-card">
         <div class="mini-label">Total PAT</div>
         <div class="mini-value ${cls(totalPAT)}">${fmt(totalPAT)}</div>
@@ -690,22 +693,29 @@ function renderDashboard() {
         <div class="mini-value">${fmt(invested)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">${state.open.length} held lots</div>
       </div>
-      <div class="mini-card">
-        <div class="mini-label">Cash Balance</div>
-        ${state.funds && state.funds.live != null ? `
-        <div class="mini-value ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' (Δ ' + fmtN(state.funds.live - cash) + ')' : ''}</div>
-        <div style="font-size:10px;margin-top:4px">
-          <span id="bal-refresh" style="color:var(--accent2);cursor:pointer" onclick="refreshBalance()">↻ refresh</span>
-          &nbsp;·&nbsp;
-          <span style="color:var(--accent);cursor:pointer" onclick="syncBalance()">↓ write to sheet</span>
+    </div>
+    <div class="card">
+      <div class="card-title">Cash Balance</div>
+      ${state.funds && state.funds.live != null ? `
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <div>
+          <div class="big-number ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
+          <div class="big-label">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
         </div>
-        ` : `
-        <div class="mini-value ${cls(cash)}">${fmt(cash)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">from sheet — Kite live n/a</div>
-        ${!localWB ? `<div style="font-size:10px;color:var(--accent2);margin-top:4px;cursor:pointer" id="bal-refresh" onclick="refreshBalance()">↻ retry Kite</div>` : ''}
-        `}
+        <div style="display:flex;gap:8px">
+          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Refresh</button>
+          <button class="mini-btn" style="color:var(--accent)" onclick="syncBalance()">↓ Write to sheet</button>
+        </div>
       </div>
+      ` : `
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <div>
+          <div class="big-number ${cls(cash)}">${fmt(cash)}</div>
+          <div class="big-label">from sheet — Kite live n/a</div>
+        </div>
+        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Retry Kite</button>` : ''}
+      </div>
+      `}
     </div>
 
     ${last3.length ? `
@@ -860,7 +870,14 @@ function renderPositions() {
               <td style="font-size:11px;color:var(--muted)">${r.buyDate||''}</td>
               <td>${r.qty || '—'}</td>
               <td>${r.price ? '₹' + r.price.toLocaleString('en-IN',{maximumFractionDigits:1}) : '—'}</td>
-              <td style="text-align:right;font-weight:600">${fmt(r.value)}${r.sellGtt ? `<div style="font-size:9px;color:var(--muted)">GTT ✓</div>` : `<div style="font-size:9px;color:var(--warn)">no GTT</div>`}</td>
+              <td style="text-align:right;font-weight:600">${fmt(r.value)}${(() => {
+                // 'no GTT' warning only where one is expected — S0 (Smallcase) and
+                // not_in_kite (other demat) carry no sell GTT by design
+                const expects = r.status === 'in_holdings' || r.status === 'prior_quarter' ||
+                                (r.status === 'other_strategy' && r.strategy === 'S2');
+                return r.sellGtt ? `<div style="font-size:9px;color:var(--muted)">GTT ✓</div>`
+                     : expects   ? `<div style="font-size:9px;color:var(--warn)">no GTT</div>` : '';
+              })()}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -960,11 +977,11 @@ function emiFormHtml() {
   if (localWB) return '';
   if (!emiFormOpen) return `<div class="card" style="padding:10px 14px;cursor:pointer;color:var(--accent)" onclick="toggleEmiForm()">＋ Add this month's EMI</div>`;
   const today = new Date().toISOString().substring(0, 10);
-  return `<div class="card">
+  return `<div class="card" style="overflow:hidden">
     <div class="card-title">Record EMI</div>
-    <input id="emi-date" type="date" value="${today}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:8px"/>
-    <input id="emi-total" type="number" inputmode="decimal" placeholder="Total EMI (e.g. 16986)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:8px"/>
-    <input id="emi-principal" type="number" inputmode="decimal" placeholder="Principal portion (optional — interest auto)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:10px"/>
+    <input id="emi-date" type="date" value="${today}" class="inp"/>
+    <input id="emi-total" type="number" inputmode="decimal" placeholder="Total EMI (e.g. 16986)" class="inp"/>
+    <input id="emi-principal" type="number" inputmode="decimal" placeholder="Principal portion (optional — interest auto)" class="inp" style="margin-bottom:10px"/>
     <div style="display:flex;gap:8px">
       <button onclick="submitEmi()" style="flex:1;background:var(--accent);border:none;border-radius:8px;padding:11px;color:white;font-size:13px;font-weight:600;cursor:pointer">Save EMI</button>
       <button onclick="toggleEmiForm()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:var(--muted);font-size:13px;cursor:pointer">Cancel</button>
@@ -1010,7 +1027,7 @@ function renderProgressS2() {
         <div>
           <div style="font-size:10px;color:var(--s2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">S2 Loan</div>
           <div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin-top:2px">${fmt(loan)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Principal deployed · 01-Jun-2026</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Principal deployed · ${loanDate().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:10px;color:var(--muted)">EMI Paid</div>
@@ -1105,7 +1122,9 @@ function renderProspects() {
       </div>`);
     return;
   }
-  const sorted = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
+  // Held stocks sink to the bottom regardless of column sort
+  const base   = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
+  const sorted = [...base.filter(r => !r.held), ...base.filter(r => r.held)];
   setContent(`
     <div class="sec-head">S2 Prospects <span class="badge">${rows.length} in 9–13% band</span>
       <span class="badge">as of ${rows[0].updated || '—'}</span>
