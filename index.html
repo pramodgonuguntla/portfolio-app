@@ -570,9 +570,13 @@ async function loadData() {
       };
     }).filter(r => r.amount !== 0);
 
-    // ── S2 Prospects (positional): WL Ref | Ticker | CMP | Trigger | Away% | Qty | ~Value | S2 Held? | Updated
+    // ── S2 Prospects (positional): WL Ref | Ticker | CMP | Trigger | Away% | Qty | ~Value | Held? | Updated
+    // NOTE: gviz silently serves the FIRST sheet when the requested tab doesn't
+    // exist (e.g. before the first run creates S2_Prospects) — validate shape
+    // (positive CMP/trigger/away) so foreign rows can never render here.
     state.prospects = (prospectRows || [])
-      .filter(r => val(r[1]) && String(val(r[1])).trim() !== 'Ticker')
+      .filter(r => val(r[1]) && String(val(r[1])).trim() !== 'Ticker' &&
+                   parseAmt(val(r[2])) > 0 && parseAmt(val(r[3])) > 0 && parseAmt(val(r[4])) > 0)
       .map(r => ({
         ref:     String(disp(r[0]) || ''),
         ticker:  String(val(r[1])).trim(),
