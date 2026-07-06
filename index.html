@@ -148,6 +148,7 @@
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="showTab('ps2')">Progress S2</div>
     <div class="tab" onclick="showTab('ps1')">Progress S1</div>
+    <div class="tab" onclick="showTab('prospects')">S2 Prospects</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
     <div class="tab" onclick="showTab('closed')">Closed Positions</div>
     <div class="tab" onclick="showTab('trades')">Actions</div>
@@ -404,7 +405,7 @@ async function loadData() {
   setContent('<div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>');
   document.getElementById('last-updated').textContent = 'Refreshing…';
   try {
-    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows] = await Promise.all([
+    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows, prospectRows] = await Promise.all([
       fetchSheetRows('VTP_Repo'),
       fetchSheetRows('Closed Trades'),
       fetchSheet('Yearly Summary').catch(() => []),
@@ -413,6 +414,7 @@ async function loadData() {
       fetchSheetRows('Actions').catch(() => []),
       fetchSheet('Progress_S2').catch(() => []),
       fetchSheet('S2_XIRR').catch(() => []),
+      fetchSheetRows('S2_Prospects').catch(() => []),
     ]);
     const prog1Rows = (prog1RawA && prog1RawA.length > 0) ? prog1RawA : prog1RawB;
 
@@ -568,6 +570,21 @@ async function loadData() {
       };
     }).filter(r => r.amount !== 0);
 
+    // ── S2 Prospects (positional): WL Ref | Ticker | CMP | Trigger | Away% | Qty | ~Value | S2 Held? | Updated
+    state.prospects = (prospectRows || [])
+      .filter(r => val(r[1]) && String(val(r[1])).trim() !== 'Ticker')
+      .map(r => ({
+        ref:     String(disp(r[0]) || ''),
+        ticker:  String(val(r[1])).trim(),
+        cmp:     parseAmt(val(r[2])),
+        trigger: parseAmt(val(r[3])),
+        away:    parseAmt(val(r[4])),
+        qty:     parseAmt(val(r[5])),
+        value:   parseAmt(val(r[6])),
+        held:    String(val(r[7]) || '').trim() === 'YES',
+        updated: disp(r[8]),
+      }));
+
     console.log('[VTP] repo rows:', state.repo.length, 'held:', state.open.length);
     console.log('[VTP] closed:', state.closed.length, 'actions:', state.actions.length);
 
@@ -592,7 +609,7 @@ async function loadData() {
 function showTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  const tabs = ['dashboard','ps2','ps1','open','closed','trades'];
+  const tabs = ['dashboard','ps2','ps1','prospects','open','closed','trades'];
   document.querySelectorAll('.tab')[tabs.indexOf(tab)].classList.add('active');
   if (state.loaded) renderTab(tab);
 }
@@ -600,6 +617,7 @@ function renderTab(tab) {
   if      (tab === 'dashboard') renderDashboard();
   else if (tab === 'ps2')       renderProgressS2();
   else if (tab === 'ps1')       renderProgressS1();
+  else if (tab === 'prospects') renderProspects();
   else if (tab === 'open')      renderPositions();
   else if (tab === 'closed')    renderClosed();
   else if (tab === 'trades')    renderActions();
@@ -983,6 +1001,59 @@ function renderProgressS2() {
         }).join('')}</tbody>
       </table>
     </div>`);
+}
+
+// ── S2 Prospects ──────────────────────────────────────────────────────────────
+let prosSort = { key: 'away', dir: 1 };
+function setProsSort(key) { prosSort = prosSort.key === key ? { key, dir: -prosSort.dir } : { key, dir: 1 }; renderProspects(); }
+
+function renderProspects() {
+  const rows = state.prospects || [];
+  if (rows.length === 0) {
+    setContent(`
+      <div class="sec-head">S2 Prospects</div>
+      <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:8px">🔭</div>
+        <div>No watchlist stocks in the 9–13% band right now.</div>
+        <div style="font-size:11px;margin-top:6px">Refreshed on every daily run.</div>
+      </div>`);
+    return;
+  }
+  const sorted = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
+  setContent(`
+    <div class="sec-head">S2 Prospects <span class="badge">${rows.length} in 9–13% band</span>
+      <span class="badge">as of ${rows[0].updated || '—'}</span></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--muted)">
+      Watchlist (gtt_placed) stocks whose CMP is 9–13% above the S1 buy trigger — far enough not to
+      collide with the buy GTT, close enough to value. Suggested lot ≈ ₹50,000.
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr>
+          ${th('Scrip','ticker',prosSort,'setProsSort')}
+          ${th('CMP','cmp',prosSort,'setProsSort')}
+          ${th('Trigger','trigger',prosSort,'setProsSort')}
+          ${th('Away','away',prosSort,'setProsSort')}
+          ${th('Qty · ~Lot','qty',prosSort,'setProsSort','right')}
+        </tr></thead>
+        <tbody>
+          ${sorted.map(r => {
+            const nearness = Math.max(0, Math.min(1, (13 - r.away) / 4));  // 13%→0, 9%→1
+            const awayColor = nearness > 0.66 ? 'var(--positive)' : nearness > 0.33 ? '#fbbf24' : 'var(--muted)';
+            return `
+            <tr>
+              <td><div style="font-weight:600">${r.ticker}</div>
+                  <div style="font-size:10px;margin-top:1px;color:var(--muted)">${r.ref}${r.held ? ' · <span style="color:var(--s2);font-weight:700">S2 HELD</span>' : ''}</div></td>
+              <td>₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
+              <td style="color:var(--muted)">₹${r.trigger.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
+              <td style="font-weight:700;color:${awayColor}">${r.away.toFixed(1)}%</td>
+              <td style="text-align:right;font-weight:600">${r.qty}<div style="font-size:10px;color:var(--muted)">${fmt(r.value)}</div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `);
 }
 
 // ── Actions (from the Actions sheet) ──────────────────────────────────────────
