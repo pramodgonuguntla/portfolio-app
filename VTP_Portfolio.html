@@ -909,7 +909,8 @@ function renderProgressS1() {
 
   const now = new Date();
   setContent(`
-    <div class="sec-head">Progress S1 <span class="badge">${lots.length} lots · ${totalSlots} bookings</span></div>
+    <div class="sec-head">Progress S1 <span class="badge">${lots.length} lots · ${totalSlots} bookings</span>
+      ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent2)" onclick="syncProgress()">✓ sync bookings</span>` : ''}</div>
     ${patCard}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -938,8 +939,41 @@ function renderProgressS1() {
     </div>`);
 }
 
+// ── Add EMI (Progress S2) ─────────────────────────────────────────────────────
+let emiFormOpen = false;
+function toggleEmiForm() { emiFormOpen = !emiFormOpen; renderProgressS2(); }
+async function submitEmi() {
+  const t = parseFloat(document.getElementById('emi-total').value);
+  const p = parseFloat(document.getElementById('emi-principal').value) || 0;
+  const d = document.getElementById('emi-date').value;
+  if (!t) { alert('Enter the total EMI amount.'); return; }
+  const i = p ? Math.round((t - p) * 100) / 100 : 0;
+  if (!confirm('Record EMI ₹' + t + (p ? ' (principal ₹' + p + ' + interest ₹' + i + ')' : '') + (d ? ' dated ' + d : '') + '?')) return;
+  try {
+    const j = await waPost({ fn: 'add_emi', total: t, principal: p || null, interest: i || null, date: d || null });
+    alert('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
+    emiFormOpen = false;
+    await loadData(); showTab('ps2');
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+function emiFormHtml() {
+  if (localWB) return '';
+  if (!emiFormOpen) return `<div class="card" style="padding:10px 14px;cursor:pointer;color:var(--accent)" onclick="toggleEmiForm()">＋ Add this month's EMI</div>`;
+  const today = new Date().toISOString().substring(0, 10);
+  return `<div class="card">
+    <div class="card-title">Record EMI</div>
+    <input id="emi-date" type="date" value="${today}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:8px"/>
+    <input id="emi-total" type="number" inputmode="decimal" placeholder="Total EMI (e.g. 16986)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:8px"/>
+    <input id="emi-principal" type="number" inputmode="decimal" placeholder="Principal portion (optional — interest auto)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;margin-bottom:10px"/>
+    <div style="display:flex;gap:8px">
+      <button onclick="submitEmi()" style="flex:1;background:var(--accent);border:none;border-radius:8px;padding:11px;color:white;font-size:13px;font-weight:600;cursor:pointer">Save EMI</button>
+      <button onclick="toggleEmiForm()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:var(--muted);font-size:13px;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+}
+
 function renderProgressS2() {
-  const subTabsHtml = '';
+  const subTabsHtml = emiFormHtml();
   const loan    = loanAmount();
   const emiPaid = Math.abs((state.fundBlock.s2||{})['Cash Out'] || 0);
   const s2Pat   = (state.fundBlock.s2||{})['PAT'] || 0;
@@ -1023,6 +1057,19 @@ function renderProgressS2() {
         }).join('')}</tbody>
       </table>
     </div>`);
+}
+
+// Flip Progress_S1 slots to Booked from current S1 PAT (floor(PAT/1000))
+async function syncProgress() {
+  if (!confirm('Sync bookings from current S1 PAT?\nFlips floor(PAT/1000) − already-booked slots to Booked.')) return;
+  try {
+    const j = await waPost({ fn: 'sync_progress' });
+    alert(j.flipped
+      ? 'Flipped ' + j.flipped + ' slot(s):\n' + (j.cells || []).join('\n') +
+        '\n\nBooked: ' + j.booked + ' → ' + (j.booked + j.flipped) + ' (target ' + j.target + ', S1 PAT ₹' + Math.round(j.s1pat).toLocaleString('en-IN') + ')'
+      : 'Already up to date — ' + j.booked + '/' + j.target + ' booked (S1 PAT ₹' + Math.round(j.s1pat).toLocaleString('en-IN') + ').');
+    await loadData(); showTab('ps1');
+  } catch (e) { alert('Sync failed: ' + e.message); }
 }
 
 // ── S2 Prospects ──────────────────────────────────────────────────────────────
