@@ -483,6 +483,27 @@ async function loadData() {
     const titleRow = (actionRows || []).find(r => String(val(r[0]) || '').includes('VTP Daily Check'));
     state.actionsTitle = titleRow ? String(val(titleRow[0])) : '';
 
+    // Authoritative row numbers from the web app — gviz drops the merged title
+    // row, so its derived indexes can be off by one (MAPMYINDIA row-5 mismatch).
+    // Execution needs the web app anyway, so its list wins when available.
+    if (WA_URL && !localWB) {
+      try {
+        const j = await waGet({ fn: 'actions' });
+        state.actions = (j.actions || []).map(a => ({
+          sheetRow: a.row,
+          action:   a.action,
+          symbol:   a.symbol,
+          strategy: a.strategy,
+          details:  a.details,
+          recPrice: a.recPrice != null ? a.recPrice : '',
+          recQty:   a.recQty   != null ? a.recQty   : '',
+          status:   a.status || 'Pending',
+        }));
+      } catch (e) {
+        console.warn('[VTP] web app actions fetch failed — falling back to gviz rows:', e.message);
+      }
+    }
+
     // ── Yearly Summary ────────────────────────────────────────────────────────
     const { summary, fund } = parseSummary(summaryRows);
     state.summary   = summary;
