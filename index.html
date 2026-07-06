@@ -589,6 +589,13 @@ async function loadData() {
         updated: disp(r[8]),
       }));
 
+    // ── Live Kite funds (best-effort; token may be expired) ───────────────────
+    state.funds = null;
+    if (WA_URL && !localWB) {
+      try { state.funds = (await waGet({ fn: 'funds' })).funds || null; }
+      catch (e) { console.warn('[VTP] funds fetch failed:', e.message); }
+    }
+
     console.log('[VTP] repo rows:', state.repo.length, 'held:', state.open.length);
     console.log('[VTP] closed:', state.closed.length, 'actions:', state.actions.length);
 
@@ -685,8 +692,13 @@ function renderDashboard() {
       </div>
       <div class="mini-card">
         <div class="mini-label">Cash Balance</div>
+        ${state.funds && state.funds.live != null ? `
+        <div class="mini-value ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' (Δ ' + fmtN(state.funds.live - cash) + ')' : ''}</div>
+        ` : `
         <div class="mini-value ${cls(cash)}">${fmt(cash)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">actual fund balance</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">from sheet — Kite live n/a</div>
+        `}
       </div>
     </div>
 
