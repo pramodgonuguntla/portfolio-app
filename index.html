@@ -156,6 +156,14 @@
     <div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>
   </div>
 </div>
+<div id="logmodal" style="display:none;position:fixed;inset:0;background:rgba(3,7,18,0.96);z-index:200;flex-direction:column">
+  <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0">
+    <b id="logtitle" style="font-size:14px">Run Log</b>
+    <button onclick="document.getElementById('logmodal').style.display='none'"
+      style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer">✕ Close</button>
+  </div>
+  <pre id="logbody" style="flex:1;overflow:auto;margin:0;padding:14px 16px;font-size:10.5px;line-height:1.7;color:#c9d1d9;white-space:pre-wrap;-webkit-overflow-scrolling:touch"></pre>
+</div>
 <div id="config">
   <div id="config-box">
     <h3>Settings</h3>
@@ -938,10 +946,12 @@ function renderProgressS2() {
 function renderActions() {
   if (state.actions.length === 0) {
     setContent(`
-      <div class="sec-head">Actions ${state.actionsTitle ? `<span class="badge">${state.actionsTitle.replace('VTP Daily Check — ','')}</span>` : ''}</div>
+      <div class="sec-head">Actions ${state.actionsTitle ? `<span class="badge">${state.actionsTitle.replace('VTP Daily Check — ','')}</span>` : ''}
+        ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent)" onclick="viewLastLog()">📜 run log</span>` : ''}</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
         <div style="font-size:32px;margin-bottom:8px">✅</div>
         <div>No actions in the last daily check.</div>
+        ${!localWB ? `<div style="margin-top:10px;font-size:12px;color:var(--accent);cursor:pointer" onclick="viewLastLog()">View run log to verify all phases ran →</div>` : ''}
       </div>
     `);
     return;
@@ -951,7 +961,8 @@ function renderActions() {
   const errors  = state.actions.filter(a => a.status.startsWith('ERROR')).length;
   const canExec = !localWB;   // execution needs the live sheet
   setContent(`
-    <div class="sec-head">Actions <span class="badge">${state.actionsTitle ? state.actionsTitle.replace('VTP Daily Check — ','') : state.actions.length}</span></div>
+    <div class="sec-head">Actions <span class="badge">${state.actionsTitle ? state.actionsTitle.replace('VTP Daily Check — ','') : state.actions.length}</span>
+      ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent)" onclick="viewLastLog()">📜 run log</span>` : ''}</div>
     <div class="grid-3" style="margin-bottom:12px">
       <div class="mini-card"><div class="mini-label" style="color:#fbbf24">Pending</div><div class="mini-value" style="color:#fbbf24">${pending}</div></div>
       <div class="mini-card"><div class="mini-label pos">Done</div><div class="mini-value pos">${done}</div></div>
@@ -1082,6 +1093,25 @@ async function kiteLogin() {
   }
 }
 
+// ── Log viewer ────────────────────────────────────────────────────────────────
+function showLogs(lines, title) {
+  document.getElementById('logtitle').textContent = title || 'Run Log';
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  document.getElementById('logbody').innerHTML =
+    (lines && lines.length ? lines : ['(no log lines returned)']).map(l => {
+      const e = esc(l);
+      if (/ERROR|FAIL|WARN/i.test(e))                                   return '<span style="color:#f87171">' + e + '</span>';
+      if (/Phase \d|RESET|Executing|Daily check complete|Execution complete/i.test(e)) return '<span style="color:#60a5fa;font-weight:700">' + e + '</span>';
+      if (/PLACE_|REORDER|CANCEL|DELETE_|CLOSE_|CLASSIFY|Closed trade|GTT placed/i.test(e)) return '<span style="color:#34d399">' + e + '</span>';
+      return '<span style="color:#8b949e">' + e + '</span>';
+    }).join('\n');
+  document.getElementById('logmodal').style.display = 'flex';
+}
+async function viewLastLog() {
+  try { const j = await waGet({ fn: 'logs', n: 150 }); showLogs(j.logs, 'RunLog — last ' + (j.logs || []).length + ' lines'); }
+  catch (e) { alert('Could not fetch logs: ' + e.message); }
+}
+
 async function runVtp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!confirm('Run the VTP daily check now?')) return;
@@ -1090,8 +1120,8 @@ async function runVtp() {
   try {
     const j = await waPost({ fn: 'run' });
     const pend = (j.actions || []).filter(a => a.status === 'Pending').length;
-    alert('Daily check complete — ' + pend + ' pending action(s).');
     selectedRows.clear();
+    showLogs(j.logs, '✅ Daily check complete — ' + pend + ' pending action(s)');
     await loadData();
     showTab('trades');
   } catch (e) {
@@ -1130,8 +1160,8 @@ async function executeSelected() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Executing…'; }
   try {
     const j = await waPost({ fn: 'execute', rows, verify, classify });
-    alert('Done: ' + j.executed + ' executed, ' + j.errors + ' error(s).');
     selectedRows.clear();
+    showLogs(j.logs, (j.errors ? '⚠️ ' : '✅ ') + j.executed + ' executed, ' + j.errors + ' error(s)');
     await loadData();
   } catch (e) {
     alert('Execute failed: ' + e.message);
