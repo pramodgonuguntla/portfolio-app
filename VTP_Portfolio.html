@@ -846,9 +846,31 @@ function renderProgressS1() {
   const bookedSlots = lots.reduce((a, l) => a + l.slots.filter(s => s.toLowerCase() === 'booked').length, 0);
   const pct = totalSlots ? Math.round(bookedSlots / totalSlots * 100) : 0;
 
+  // S1 PAT — overall + FY-wise (from Yearly Summary)
+  const s1Sum   = state.summary.filter(r => r.strategy === 'S1');
+  const s1Total = s1Sum.reduce((a, r) => a + r.pat, 0);
+  const s1FYs   = [...new Set(s1Sum.map(r => r.fy))].sort().reverse();
+  const patCard = s1Sum.length ? `
+    <div class="card">
+      <div class="card-title">S1 PAT Earned</div>
+      <div class="big-number ${cls(s1Total)}">${fmt(s1Total)}</div>
+      <div class="big-label">${s1Sum.reduce((a,r) => a + r.lots, 0)} closed lots · all time</div>
+      <div class="divider"></div>
+      ${s1FYs.map(fy => {
+        const rows = s1Sum.filter(r => r.fy === fy);
+        const pat  = rows.reduce((a,r) => a + r.pat, 0);
+        const lc   = rows.reduce((a,r) => a + r.lots, 0);
+        return `<div class="balance-row">
+          <span class="balance-label">${fy} · ${lc} lots</span>
+          <span class="balance-value ${cls(pat)}">${fmt(pat)}</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
   const now = new Date();
   setContent(`
     <div class="sec-head">Progress S1 <span class="badge">${lots.length} lots · ${totalSlots} bookings</span></div>
+    ${patCard}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div><span class="pos" style="font-size:20px;font-weight:700">${bookedSlots}</span><span style="color:var(--muted);font-size:12px"> / ${totalSlots} bookings done</span></div>
