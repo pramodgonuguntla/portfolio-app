@@ -695,6 +695,7 @@ function renderDashboard() {
         ${state.funds && state.funds.live != null ? `
         <div class="mini-value ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' (Δ ' + fmtN(state.funds.live - cash) + ')' : ''}</div>
+        <div style="font-size:10px;color:var(--accent);margin-top:4px;cursor:pointer" onclick="syncBalance()">↓ write to sheet</div>
         ` : `
         <div class="mini-value ${cls(cash)}">${fmt(cash)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:3px">from sheet — Kite live n/a</div>
@@ -1276,6 +1277,19 @@ async function runVtp() {
     alert('Run failed: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = '▶ Run VTP';
+  }
+}
+
+async function syncBalance() {
+  const live = state.funds && state.funds.live;
+  if (live == null) return;
+  if (!confirm('Write live Kite balance ' + fmt(live) + ' into Yearly Summary → Actual Fund Balance?')) return;
+  try {
+    const j = await waPost({ fn: 'sync_balance' });
+    alert('Sheet updated: ' + j.cell + ' = ₹' + Math.round(j.balance).toLocaleString('en-IN'));
+    await loadData();
+  } catch (e) {
+    alert('Sync failed: ' + e.message);
   }
 }
 
