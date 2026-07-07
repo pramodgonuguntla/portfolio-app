@@ -269,10 +269,10 @@ async function fetchSheetRows(sheetName) {
 // ── Parse Yearly Summary ──────────────────────────────────────────────────────
 function parseSummary(rows) {
   const summary = [];
-  const fund    = { byStrategy: {}, s2: {} };
+  const fund    = { byStrategy: {}, s2: {}, s1: {} };
   const FUND_LABELS = ['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
        'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
-       'Cash Out','Booked Funds','PAT'];
+       'Cash Out','Booked Funds','Floating Funds','PAT'];
   for (const row of rows) {
     const keys = Object.keys(row);
     const colA = row['FY']         != null ? row['FY']         : row[keys[0]];
@@ -294,9 +294,11 @@ function parseSummary(rows) {
     const isBlankA = colA == null || String(colA).trim() === '';
     const label = String(isBlankA ? (colB || '') : '').trim();
     if (label && FUND_LABELS.some(k => label.includes(k))) {
+      const colD   = row['Buy Value'] != null ? row['Buy Value'] : row[keys[3]];   // S1 column
       const s2val  = parseFloat(colC) || 0;
       const totval = parseFloat(colF) || s2val;
       fund.s2[label]           = s2val;
+      fund.s1[label]           = parseFloat(colD) || 0;
       fund.byStrategy[label]   = totval;
       if (label.includes('Funds Input'))        fund.fundsInput = totval;
       if (label.includes('Ideal'))              fund.ideal      = totval;
@@ -828,6 +830,64 @@ function renderProgressS1() {
       }).join('')}
     </div>` : '';
 
+  // ── Funds: grid Inv total + YS S1 booked/floating; profit booked = slots × 1k
+  const s1Fund     = state.fundBlock.s1 || {};
+  const invTotal   = lots.reduce((a, l) => a + (parseFloat(l.inv) || 0), 0);
+  const bookedAmt  = bookedSlots * 1000;
+  const floatS1    = s1Fund['Floating Funds'] || 0;
+  const ysBookedS1 = s1Fund['Booked Funds'] || 0;
+  const recovPct   = invTotal ? Math.round(bookedAmt / invTotal * 100) : 0;
+
+  // ── Per-lot completion + next-split ETA (last scheduled slot per lot)
+  const lotRows = lots.map(l => {
+    const b    = l.slots.filter(s => s.toLowerCase() === 'booked').length;
+    const pend = l.slots.filter(s => s && s.toLowerCase() !== 'booked');
+    return { num: l.num, month: l.month, inv: parseFloat(l.inv) || 0, b,
+             eta: pend.length ? pend[pend.length - 1] : null };
+  });
+  const nextSplit = lotRows
+    .filter(r => r.b < 10 && r.eta && String(r.num).indexOf('.') === -1)
+    .sort((a, b) => (parseMonYY(a.eta) || 9e15) - (parseMonYY(b.eta) || 9e15))[0];
+
+  const fundsCard = `
+    <div class="card">
+      <div class="card-title">S1 Funds</div>
+      <div class="balance-row"><span class="balance-label">Invested — booked run-rate (${lotRows.filter(r => r.inv).length} × ₹10k)</span>
+        <span class="balance-value">${fmt(invTotal)}</span></div>
+      <div class="balance-row"><span class="balance-label">Floating — above run-rate, reclaimable</span>
+        <span class="balance-value">${fmt(floatS1)}</span></div>
+      ${ysBookedS1 && Math.round(ysBookedS1) !== Math.round(invTotal) ? `
+      <div class="balance-row"><span class="balance-label" style="color:#fbbf24">⚠ Yearly Summary Booked Funds differs</span>
+        <span class="balance-value" style="color:#fbbf24">${fmt(ysBookedS1)}</span></div>` : ''}
+      <div class="divider"></div>
+      <div class="balance-row"><span class="balance-label">Profit booked (${bookedSlots} × ₹1,000)</span>
+        <span class="balance-value pos">${fmt(bookedAmt)}</span></div>
+      <div class="balance-row"><span class="balance-label">Recovered vs invested</span>
+        <span class="balance-value">${recovPct}%</span></div>
+      ${nextSplit ? `
+      <div class="balance-row"><span class="balance-label">Next split (lot fully booked)</span>
+        <span class="balance-value">#${nextSplit.num} ${nextSplit.month} → ${nextSplit.eta}</span></div>` : ''}
+    </div>`;
+
+  const lotsCard = `
+    <div class="sec-head" style="margin-top:14px">Lots <span class="badge">${lotRows.filter(r => r.b === 10).length} complete</span></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Lot</th><th style="width:42%">Booked</th><th style="text-align:right">Done by</th></tr></thead>
+        <tbody>
+          ${lotRows.map(r => `
+          <tr style="${r.inv ? '' : 'opacity:0.5'}">
+            <td style="color:var(--muted)">${r.num}</td>
+            <td style="font-weight:600">${r.month}${r.inv ? '' : `<div style="font-size:9px;color:var(--muted)">not funded yet</div>`}</td>
+            <td><div class="prog-bar" style="height:6px"><div class="prog-fill" style="width:${r.b * 10}%"></div></div>
+                <div style="font-size:9px;color:var(--muted);margin-top:1px">${r.b}/10 · ${fmt(r.b * 1000)}</div></td>
+            <td style="text-align:right;font-size:11px;color:${r.b === 10 ? 'var(--positive)' : 'var(--muted)'};font-weight:${r.b === 10 ? 700 : 400}">
+              ${r.b === 10 ? '✓ full' : (r.eta || '—')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
   const now = new Date();
   setContent(`
     <div class="sec-head">Progress S1 <span class="badge">${lots.length} lots · ${totalSlots} bookings</span>
@@ -840,6 +900,7 @@ function renderProgressS1() {
       </div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
     </div>
+    ${fundsCard}
     <div class="card" style="padding:0;overflow:hidden">
       <table class="tbl">
         <thead><tr><th>Month</th><th>Bookings</th><th style="text-align:right">Cumulative</th></tr></thead>
@@ -857,7 +918,8 @@ function renderProgressS1() {
           }).join('')}
         </tbody>
       </table>
-    </div>`);
+    </div>
+    ${lotsCard}`);
 }
 
 // ── Add EMI (Progress S2) ─────────────────────────────────────────────────────
@@ -1019,6 +1081,31 @@ async function refreshProspects() {
 const prosRefreshBtn = () => localWB ? '' :
   `<span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>`;
 
+// 🛒 Buy a prospect as S2 — real CNC order via fn=s2_buy (tagged VTPS2; next
+// VTP run auto-classifies the fill as S2 + queues the two-leg exit GTT)
+async function buyProspect(ticker, defQty, cmp) {
+  if (localWB) { alert('Local file mode — orders need the live sheet (☁).'); return; }
+  const qIn = prompt('Buy ' + ticker + ' — quantity:', defQty);
+  if (qIn === null) return;
+  const qty = parseInt(qIn, 10);
+  if (!qty || qty <= 0) { alert('Invalid quantity.'); return; }
+  const pIn = prompt('Limit price ₹ (leave EMPTY for MARKET order):', cmp);
+  if (pIn === null) return;
+  const price = pIn.trim() === '' ? 0 : parseFloat(pIn);
+  if (pIn.trim() !== '' && (!price || price <= 0)) { alert('Invalid price.'); return; }
+  const est = Math.round(qty * (price || cmp));
+  if (!confirm('PLACE REAL BUY ORDER?\n\n' + ticker + '  ×' + qty +
+      (price ? '  LIMIT ₹' + price : '  MARKET (CMP ≈₹' + cmp + ')') +
+      '\n≈ ₹' + est.toLocaleString('en-IN') +
+      '\n\nFill auto-classifies as S2; two-leg exit GTT queued on next run.')) return;
+  try {
+    const j = await waPost({ fn: 's2_buy', ticker, qty, price });
+    alert('✅ Order placed — id ' + j.order_id +
+          (j.price ? '\nLIMIT ₹' + j.price : '\nMARKET') +
+          '\n\nAfter it fills, ▶ Run VTP records the lot + exit GTT (or the evening auto-run catches it).');
+  } catch (e) { alert('Buy failed: ' + e.message); }
+}
+
 function renderProspects() {
   const rows = state.prospects || [];
   if (rows.length === 0) {
@@ -1062,7 +1149,8 @@ function renderProspects() {
               <td>₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
               <td style="color:var(--muted)">₹${r.trigger.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
               <td style="font-weight:700;color:${awayColor}">${r.away.toFixed(1)}%</td>
-              <td style="text-align:right;font-weight:600">${r.qty}<div style="font-size:10px;color:var(--muted)">${fmt(r.value)}</div></td>
+              <td style="text-align:right;font-weight:600">${r.qty}<div style="font-size:10px;color:var(--muted)">${fmt(r.value)}</div>
+                ${!r.held && !localWB ? `<div style="margin-top:3px"><span class="badge" style="cursor:pointer;color:var(--accent2)" onclick="buyProspect('${r.ticker}',${r.qty},${r.cmp})">🛒 buy</span></div>` : ''}</td>
             </tr>`;
           }).join('')}
         </tbody>
