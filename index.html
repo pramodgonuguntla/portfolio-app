@@ -980,15 +980,20 @@ function renderProgressS2() {
     </div>`);
 }
 
-// Flip Progress_S1 slots to Booked from current S1 PAT (floor(PAT/1000))
+// Progress_S1 sync: monthly Inv fill + new lot rows + flip (floor(PAT/1000)) + splits
 async function syncProgress() {
-  if (!confirm('Sync bookings from current S1 PAT?\nFlips floor(PAT/1000) − already-booked slots to Booked.')) return;
+  if (!confirm('Sync Progress S1?\n• fills Inv for months that arrived + adds new monthly lot rows\n• flips floor(PAT/1000) − already-booked slots to Booked\n• splits fully booked lots into {id}.1 / {id}.2')) return;
   try {
     const j = await waPost({ fn: 'sync_progress' });
-    alert(j.flipped
+    let msg = j.flipped
       ? 'Flipped ' + j.flipped + ' slot(s):\n' + (j.cells || []).join('\n') +
         '\n\nBooked: ' + j.booked + ' → ' + (j.booked + j.flipped) + ' (target ' + j.target + ', S1 PAT ₹' + Math.round(j.s1pat).toLocaleString('en-IN') + ')'
-      : 'Already up to date — ' + j.booked + '/' + j.target + ' booked (S1 PAT ₹' + Math.round(j.s1pat).toLocaleString('en-IN') + ').');
+      : 'Bookings up to date — ' + j.booked + '/' + j.target + ' booked (S1 PAT ₹' + Math.round(j.s1pat).toLocaleString('en-IN') + ').';
+    const extra = [];
+    if ((j.newLots   || []).length) extra.push('🆕 New lot(s): '  + j.newLots.join(', '));
+    if ((j.invFilled || []).length) extra.push('💰 Inv filled: '  + j.invFilled.join(', '));
+    if ((j.splits    || []).length) extra.push('🔀 Split: '       + j.splits.join('; '));
+    alert(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
     await loadData(); showTab('ps1');
   } catch (e) { alert('Sync failed: ' + e.message); }
 }
@@ -1111,6 +1116,13 @@ function renderActions() {
                   <option value="S1">S1 — GTT fill (delayed email)</option>
                   <option value="S2">S2 — manual buy</option>
                 </select>
+              </div>` : ''}
+            ${selectable && (a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || (a.action === 'PLACE_SELL_GTT' && a.strategy === 'S1')) ? `
+              <div style="margin-top:5px;display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)">
+                ✏ ₹<input id="px-${a.sheetRow}" type="number" inputmode="decimal" step="any" value="${a.recPrice}"
+                     style="width:78px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
+                qty <input id="qty-${a.sheetRow}" type="number" inputmode="numeric" step="1" value="${a.recQty}"
+                     style="width:60px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
               </div>` : ''}
             ${a.status.startsWith('ERROR') ? `<div style="font-size:10px;color:#f87171;margin-top:2px">${a.status}</div>` : ''}
           </div>
@@ -1293,7 +1305,8 @@ async function executeSelected() {
   if (localWB) { alert('Local file mode — execution needs the live sheet (☁).'); return; }
   if (selectedRows.size === 0) return;
   const rows = [...selectedRows];
-  const verify = {}, classify = {};
+  const verify = {}, classify = {}, overrides = {};
+  const ovNotes = [];
   for (const a of state.actions) {
     if (!selectedRows.has(a.sheetRow)) continue;
     verify[a.sheetRow] = { action: a.action, symbol: a.symbol };
@@ -1303,12 +1316,26 @@ async function executeSelected() {
       if (v !== 'S1' && v !== 'S2') { alert('Pick S1 or S2 for ' + a.symbol + ' first.'); return; }
       classify[a.sheetRow] = v;
     }
+    // Edited ✏ price/qty → overrides (only when changed from the recommended value)
+    const px = document.getElementById('px-' + a.sheetRow);
+    const qt = document.getElementById('qty-' + a.sheetRow);
+    if (px || qt) {
+      const o = {};
+      if (px && px.value !== '' && parseFloat(px.value) !== parseFloat(a.recPrice)) o.price = parseFloat(px.value);
+      if (qt && qt.value !== '' && parseInt(qt.value, 10) !== parseInt(a.recQty, 10)) o.qty = parseInt(qt.value, 10);
+      if (o.price != null || o.qty != null) {
+        overrides[a.sheetRow] = o;
+        ovNotes.push(a.symbol + (o.price != null ? ' ₹' + o.price : '') + (o.qty != null ? ' qty ' + o.qty : ''));
+      }
+    }
   }
-  if (!confirm('Execute ' + rows.length + ' action(s)?\nThis places/cancels REAL GTT orders on Zerodha.')) return;
+  if (!confirm('Execute ' + rows.length + ' action(s)?' +
+      (ovNotes.length ? '\n✏ Edited: ' + ovNotes.join(', ') : '') +
+      '\nThis places/cancels REAL GTT orders on Zerodha.')) return;
   const btn = document.getElementById('exec-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Executing…'; }
   try {
-    const j = await waPost({ fn: 'execute', rows, verify, classify });
+    const j = await waPost({ fn: 'execute', rows, verify, classify, overrides });
     selectedRows.clear();
     showLogs(j.logs, (j.errors ? '⚠️ ' : '✅ ') + j.executed + ' executed, ' + j.errors + ' error(s)');
     await loadData();
