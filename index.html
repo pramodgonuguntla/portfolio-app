@@ -25,6 +25,26 @@
     --h0:        #64748b;
     --positive:  #10b981;
     --negative:  #ef4444;
+    --wash:      rgba(255,255,255,0.03);   /* subtle row/section highlight */
+    --wash2:     rgba(255,255,255,0.05);   /* input background */
+    --inborder:  rgba(255,255,255,0.15);   /* input border */
+  }
+  body.light {
+    --bg:        #eef1f6;
+    --surface:   #ffffff;
+    --surface2:  #f1f4f9;
+    --border:    #d9e0ea;
+    --accent:    #2563eb;
+    --accent2:   #059669;
+    --warn:      #b45309;
+    --danger:    #dc2626;
+    --text:      #0f172a;
+    --muted:     #5b6b7f;
+    --positive:  #059669;
+    --negative:  #dc2626;
+    --wash:      rgba(15,23,42,0.04);
+    --wash2:     rgba(15,23,42,0.05);
+    --inborder:  rgba(15,23,42,0.22);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; font-size: 14px; }
@@ -32,8 +52,8 @@
   #header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   #header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
   #header .sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
-  #refresh-btn, #local-btn, #runvtp-btn, #settings-btn, #kite-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  #refresh-btn:active, #local-btn:active, #runvtp-btn:active, #settings-btn:active, #kite-btn:active { opacity: 0.7; }
+  #refresh-btn, #local-btn, #runvtp-btn, #settings-btn, #kite-btn, #theme-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  #refresh-btn:active, #local-btn:active, #runvtp-btn:active, #settings-btn:active, #kite-btn:active, #theme-btn:active { opacity: 0.7; }
   #runvtp-btn:disabled { opacity: 0.5; cursor: wait; }
   .exec-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); margin: 0 -16px -16px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
   .exec-bar button { flex: 1; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
@@ -80,7 +100,7 @@
   .tbl th { text-align: left; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
   .tbl td { padding: 8px; border-bottom: 1px solid rgba(30,45,69,0.5); vertical-align: middle; }
   .tbl tr:last-child td { border-bottom: none; }
-  .tbl tr:hover td { background: rgba(255,255,255,0.02); }
+  .tbl tr:hover td { background: var(--wash); }
   .prog-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 6px; }
   .prog-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s ease; }
   .balance-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -142,6 +162,7 @@
       <button id="kite-btn" onclick="kiteLogin()" title="Refresh Kite token">🔑</button>
       <button id="runvtp-btn" onclick="runVtp()" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶ Run VTP</button>
       <button id="refresh-btn" onclick="loadData()">↻</button>
+      <button id="theme-btn" onclick="toggleTheme()" title="Light / dark theme">☾</button>
       <button id="settings-btn" onclick="document.getElementById('config').classList.add('open')">⚙</button>
     </div>
   </div>
@@ -193,6 +214,16 @@ let currentTab = 'dashboard';
 let progressSubTab = 's1';
 let positionsCat = localStorage.getItem('vtp_pos_cat') || 'held';
 
+// ── Theme (default light; remembered per device) ──────────────────────────────
+function applyTheme(t) {
+  document.body.classList.toggle('light', t === 'light');
+  localStorage.setItem('vtp_theme', t);
+  const b = document.getElementById('theme-btn');
+  if (b) b.textContent = t === 'light' ? '☾' : '☀';
+}
+function toggleTheme() { applyTheme(document.body.classList.contains('light') ? 'dark' : 'light'); }
+applyTheme(localStorage.getItem('vtp_theme') || 'light');
+
 // Repo status buckets
 const HELD_STATUSES = new Set(['in_holdings', 'prior_quarter', 'other_strategy', 'not_in_kite']);
 const WL_STATUSES   = new Set(['alerted', 'gtt_placed']);
@@ -205,6 +236,13 @@ const fmt = n => {
   return (num >= 0 ? '' : '-') + '₹' + Math.abs(num).toLocaleString('en-IN', {maximumFractionDigits: 0});
 };
 const fmtP = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+// compact ₹ for dense tables: 1,34,860 → 1.3L · 15,789 → 16k · 890 → 890
+const fmtC = v => {
+  const a = Math.abs(v), s = v < 0 ? '−' : '';
+  if (a >= 1e5)  return s + (a / 1e5).toFixed(a >= 1e7 ? 0 : 1) + 'L';
+  if (a >= 1000) return s + Math.round(a / 1000).toLocaleString('en-IN') + 'k';
+  return s + Math.round(a);
+};
 const fmtN = n => {
   const num = parseFloat(n);
   if (isNaN(num)) return '—';
@@ -269,10 +307,10 @@ async function fetchSheetRows(sheetName) {
 // ── Parse Yearly Summary ──────────────────────────────────────────────────────
 function parseSummary(rows) {
   const summary = [];
-  const fund    = { byStrategy: {}, s2: {}, s1: {} };
+  const fund    = { byStrategy: {}, s2: {}, s1: {}, s0: {} };
   const FUND_LABELS = ['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
        'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
-       'Cash Out','Booked Funds','Floating Funds','PAT'];
+       'Cash Out','Booked Funds','Floating Funds','Charges Till Date','PAT'];
   for (const row of rows) {
     const keys = Object.keys(row);
     const colA = row['FY']         != null ? row['FY']         : row[keys[0]];
@@ -294,11 +332,13 @@ function parseSummary(rows) {
     const isBlankA = colA == null || String(colA).trim() === '';
     const label = String(isBlankA ? (colB || '') : '').trim();
     if (label && FUND_LABELS.some(k => label.includes(k))) {
-      const colD   = row['Buy Value'] != null ? row['Buy Value'] : row[keys[3]];   // S1 column
+      const colD   = row['Buy Value']   != null ? row['Buy Value']   : row[keys[3]];   // S1 column
+      const colE   = row['Buy Charges'] != null ? row['Buy Charges'] : row[keys[4]];   // S0 column
       const s2val  = parseFloat(colC) || 0;
       const totval = parseFloat(colF) || s2val;
       fund.s2[label]           = s2val;
       fund.s1[label]           = parseFloat(colD) || 0;
+      fund.s0[label]           = parseFloat(colE) || 0;
       fund.byStrategy[label]   = totval;
       if (label.includes('Funds Input'))        fund.fundsInput = totval;
       if (label.includes('Ideal'))              fund.ideal      = totval;
@@ -561,6 +601,48 @@ function renderDashboard() {
   const pendingActs = state.actions.filter(a => a.status === 'Pending');
   const errorActs   = state.actions.filter(a => a.status.startsWith('ERROR'));
 
+  // ── Funds overview — Yearly Summary fund block as S2/S1/S0/Total matrix ──
+  const fb = state.fundBlock;
+  const fv = (m, l) => (m || {})[l];
+  const cell  = v => v == null || v === 0
+    ? '<td style="text-align:right;color:var(--muted)">—</td>'
+    : `<td style="text-align:right;color:${v < 0 ? 'var(--negative)' : 'inherit'}">${fmtC(v)}</td>`;
+  const cellB = v => v == null || v === 0
+    ? '<td style="text-align:right;color:var(--muted)">—</td>'
+    : `<td style="text-align:right;font-weight:700;color:${v < 0 ? 'var(--negative)' : 'inherit'}">${fmtC(v)}</td>`;
+  const fundRows = [
+    { l: 'Booked Funds',       d: 'Booked funds' },
+    { l: 'Floating Funds',     d: 'Floating funds' },
+    { l: 'Currently Invested', d: 'Currently invested' },
+    { l: 'Tax Provision',      d: 'Tax provision' },
+    { l: 'Cash Out',           d: 'Cash out' },
+    { l: 'Ideal Fund Balance', d: 'Ideal balance', hr: true },
+  ];
+  const chargesTillDate = fv(fb.byStrategy, 'Charges Till Date');
+  const fundsCard = fv(fb.byStrategy, 'Booked Funds') != null ? `
+    <div class="sec-head" style="margin-top:14px">Funds</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="tbl">
+        <thead><tr><th></th><th style="text-align:right">S2</th><th style="text-align:right">S1</th>
+          <th style="text-align:right">S0</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600">Funds input</td><td></td><td></td><td></td>${cellB(fb.fundsInput)}</tr>
+          ${fundRows.map(r => `
+          <tr${r.hr ? ' style="border-top:1px solid var(--border)"' : ''}>
+            <td style="font-weight:600">${r.d}</td>
+            ${cell(fv(fb.s2, r.l))}${cell(fv(fb.s1, r.l))}${cell(fv(fb.s0, r.l))}${cellB(fv(fb.byStrategy, r.l))}
+          </tr>`).join('')}
+          <tr><td style="font-weight:600">Actual balance</td><td></td><td></td><td></td>${cellB(fb.actual)}</tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="font-weight:700;color:var(--warn)">Charges till date</td><td></td><td></td><td></td>
+            <td style="text-align:right;font-weight:700;color:var(--warn)">${chargesTillDate != null ? fmtC(chargesTillDate) : '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:var(--muted);padding:8px 14px 12px">
+        Charges till date = ideal − actual balance (demat charges not tracked per trade)</div>
+    </div>` : '';
+
   // Row 2 — last three FYs
   const last3 = fys.slice(0, 3);
   const fyAgg = fy => {
@@ -623,6 +705,8 @@ function renderDashboard() {
       </div>
       `}
     </div>
+
+    ${fundsCard}
 
     ${last3.length ? `
     <div class="grid-3">
@@ -910,7 +994,7 @@ function renderProgressS1() {
             const isCur    = d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
             const isConsol = /consol/i.test(b.label);
             const isPast   = d && d < new Date(now.getFullYear(), now.getMonth(), 1);
-            return `<tr style="${isCur ? 'background:rgba(59,130,246,0.12)' : isConsol ? 'background:rgba(255,255,255,0.03)' : ''}">
+            return `<tr style="${isCur ? 'background:rgba(59,130,246,0.12)' : isConsol ? 'background:var(--wash)' : ''}">
               <td style="font-weight:${isConsol || isCur ? 700 : 600};${isCur ? 'color:var(--accent)' : isConsol ? '' : isPast ? 'color:var(--positive)' : ''}">${b.label}${isCur ? ' ←' : ''}</td>
               <td>${b.cnt || '—'}</td>
               <td style="text-align:right;font-weight:600;color:var(--muted)">${b.cum || '—'}</td>
@@ -1115,13 +1199,13 @@ async function submitBuy(ticker, cmp) {
 }
 
 const buyFormRow = (r) => `
-  <tr><td colspan="5" style="background:rgba(255,255,255,0.03);padding:8px 12px">
+  <tr><td colspan="5" style="background:var(--wash);padding:8px 12px">
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">
       <span style="font-weight:700">${r.ticker}</span>
       qty <input id="buy-qty" type="number" inputmode="numeric" step="1" value="${r.qty}"
-           style="width:70px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
+           style="width:70px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
       ₹ <input id="buy-px" type="number" inputmode="decimal" step="any" value="${r.cmp}" placeholder="empty = MKT"
-           style="width:86px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
+           style="width:86px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
       <button id="buy-go" onclick="submitBuy('${r.ticker}',${r.cmp})"
            style="background:var(--accent2);color:#08101f;border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px">Buy S2</button>
       <span class="badge" style="cursor:pointer" onclick="toggleBuyForm(null)">✕</span>
@@ -1232,9 +1316,9 @@ function renderActions() {
             ${selectable && (a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || (a.action === 'PLACE_SELL_GTT' && a.strategy === 'S1')) ? `
               <div style="margin-top:5px;display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)">
                 ✏ ₹<input id="px-${a.sheetRow}" type="number" inputmode="decimal" step="any" value="${a.recPrice}"
-                     style="width:78px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
+                     style="width:78px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
                 qty <input id="qty-${a.sheetRow}" type="number" inputmode="numeric" step="1" value="${a.recQty}"
-                     style="width:60px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
+                     style="width:60px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:12px">
               </div>` : ''}
             ${a.status.startsWith('ERROR') ? `<div style="font-size:10px;color:#f87171;margin-top:2px">${a.status}</div>` : ''}
           </div>
