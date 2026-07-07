@@ -1081,30 +1081,53 @@ async function refreshProspects() {
 const prosRefreshBtn = () => localWB ? '' :
   `<span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>`;
 
-// 🛒 Buy a prospect as S2 — real CNC order via fn=s2_buy (tagged VTPS2; next
-// VTP run auto-classifies the fill as S2 + queues the two-leg exit GTT)
-async function buyProspect(ticker, defQty, cmp) {
+// 🛒 Buy a prospect as S2 — inline form (iOS standalone apps mishandle
+// consecutive prompt() dialogs), real CNC order via fn=s2_buy (tagged VTPS2;
+// next VTP run auto-classifies the fill as S2 + queues the two-leg exit GTT)
+let buyFormTicker = null;
+function toggleBuyForm(t) { buyFormTicker = buyFormTicker === t ? null : t; renderProspects(); }
+
+async function submitBuy(ticker, cmp) {
   if (localWB) { alert('Local file mode — orders need the live sheet (☁).'); return; }
-  const qIn = prompt('Buy ' + ticker + ' — quantity:', defQty);
-  if (qIn === null) return;
-  const qty = parseInt(qIn, 10);
-  if (!qty || qty <= 0) { alert('Invalid quantity.'); return; }
-  const pIn = prompt('Limit price ₹ (leave EMPTY for MARKET order):', cmp);
-  if (pIn === null) return;
-  const price = pIn.trim() === '' ? 0 : parseFloat(pIn);
-  if (pIn.trim() !== '' && (!price || price <= 0)) { alert('Invalid price.'); return; }
+  const qty  = parseInt(document.getElementById('buy-qty').value, 10);
+  const pRaw = document.getElementById('buy-px').value.trim();
+  const price = pRaw === '' ? 0 : parseFloat(pRaw);
+  if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
+  if (pRaw !== '' && (!price || price <= 0)) { alert('Enter a valid price, or clear it for MARKET.'); return; }
   const est = Math.round(qty * (price || cmp));
   if (!confirm('PLACE REAL BUY ORDER?\n\n' + ticker + '  ×' + qty +
       (price ? '  LIMIT ₹' + price : '  MARKET (CMP ≈₹' + cmp + ')') +
       '\n≈ ₹' + est.toLocaleString('en-IN') +
       '\n\nFill auto-classifies as S2; two-leg exit GTT queued on next run.')) return;
+  const btn = document.getElementById('buy-go');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
     const j = await waPost({ fn: 's2_buy', ticker, qty, price });
+    buyFormTicker = null;
     alert('✅ Order placed — id ' + j.order_id +
           (j.price ? '\nLIMIT ₹' + j.price : '\nMARKET') +
           '\n\nAfter it fills, ▶ Run VTP records the lot + exit GTT (or the evening auto-run catches it).');
-  } catch (e) { alert('Buy failed: ' + e.message); }
+    renderProspects();
+  } catch (e) {
+    alert('Buy failed: ' + e.message);
+    renderProspects();
+  }
 }
+
+const buyFormRow = (r) => `
+  <tr><td colspan="5" style="background:rgba(255,255,255,0.03);padding:8px 12px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">
+      <span style="font-weight:700">${r.ticker}</span>
+      qty <input id="buy-qty" type="number" inputmode="numeric" step="1" value="${r.qty}"
+           style="width:70px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
+      ₹ <input id="buy-px" type="number" inputmode="decimal" step="any" value="${r.cmp}" placeholder="empty = MKT"
+           style="width:86px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
+      <button id="buy-go" onclick="submitBuy('${r.ticker}',${r.cmp})"
+           style="background:var(--accent2);color:#08101f;border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px">Buy S2</button>
+      <span class="badge" style="cursor:pointer" onclick="toggleBuyForm(null)">✕</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">LIMIT at price shown · clear price for MARKET · CNC, tagged VTPS2</div>
+  </td></tr>`;
 
 function renderProspects() {
   const rows = state.prospects || [];
@@ -1150,8 +1173,9 @@ function renderProspects() {
               <td style="color:var(--muted)">₹${r.trigger.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
               <td style="font-weight:700;color:${awayColor}">${r.away.toFixed(1)}%</td>
               <td style="text-align:right;font-weight:600">${r.qty}<div style="font-size:10px;color:var(--muted)">${fmt(r.value)}</div>
-                ${!r.held && !localWB ? `<div style="margin-top:3px"><span class="badge" style="cursor:pointer;color:var(--accent2)" onclick="buyProspect('${r.ticker}',${r.qty},${r.cmp})">🛒 buy</span></div>` : ''}</td>
-            </tr>`;
+                ${!r.held && !localWB ? `<div style="margin-top:3px"><span class="badge" style="cursor:pointer;color:var(--accent2)" onclick="toggleBuyForm('${r.ticker}')">${buyFormTicker === r.ticker ? '✕ close' : '🛒 buy'}</span></div>` : ''}</td>
+            </tr>
+            ${buyFormTicker === r.ticker ? buyFormRow(r) : ''}`;
           }).join('')}
         </tbody>
       </table>
