@@ -1202,35 +1202,48 @@ const prosRefreshBtn = () => localWB ? '' :
   `<span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>`;
 
 // 🛒 Buy a prospect as S2 — inline form (iOS standalone apps mishandle
-// consecutive prompt() dialogs), real CNC order via fn=s2_buy (tagged VTPS2;
-// next VTP run auto-classifies the fill as S2 + queues the two-leg exit GTT)
+// consecutive prompt() dialogs) → Kite Publisher basket with the order
+// prefilled; PG confirms inside Kite. Fill reconciles as a normal manual S2.
 let buyFormTicker = null;
 function toggleBuyForm(t) { buyFormTicker = buyFormTicker === t ? null : t; renderProspects(); }
 
+// Opens the Kite Publisher basket with the prefilled BUY — the order is
+// reviewed and placed inside PG's own Kite session (his device, his IP — no
+// SEBI static-IP issue). The fill then reconciles as a normal manual S2 buy:
+// ₹50k lots exceed the 2×budget ambiguity threshold → auto ADD_S2_ROW +
+// two-leg exit GTT on the next run, zero reconciler changes.
+let kiteApiKey = null;
 async function submitBuy(ticker, cmp) {
-  if (localWB) { alert('Local file mode — orders need the live sheet (☁).'); return; }
   const qty  = parseInt(document.getElementById('buy-qty').value, 10);
   const pRaw = document.getElementById('buy-px').value.trim();
   const price = pRaw === '' ? 0 : parseFloat(pRaw);
   if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
   if (pRaw !== '' && (!price || price <= 0)) { alert('Enter a valid price, or clear it for MARKET.'); return; }
-  const est = Math.round(qty * (price || cmp));
-  if (!confirm('PLACE REAL BUY GTT?\n\n' + ticker + '  ×' + qty +
-      (price ? '  trigger ₹' + price : '  trigger auto (CMP + 0.3%, fires on next uptick)') +
-      '\n≈ ₹' + est.toLocaleString('en-IN') +
-      '\n\nSEBI IP rules block direct orders — this places a buy GTT instead.' +
-      '\nFill auto-classifies as S2; two-leg exit GTT queued on next run.')) return;
   const btn = document.getElementById('buy-go');
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
-    const j = await waPost({ fn: 's2_buy', ticker, qty, price });
+    if (!kiteApiKey) {
+      const j = await waGet({ fn: 'ping' });
+      kiteApiKey = ((j.loginUrl || '').match(/api_key=([^&]+)/) || [])[1] || null;
+    }
+    if (!kiteApiKey) { alert('KITE_API_KEY not available (check ⚙ web-app URL/token).'); renderProspects(); return; }
+    const order = { exchange: 'NSE', tradingsymbol: ticker, transaction_type: 'BUY',
+                    quantity: qty, product: 'CNC', order_type: price ? 'LIMIT' : 'MARKET' };
+    if (price) order.price = price;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://kite.zerodha.com/connect/basket';
+    form.target = '_blank';
+    const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
+    add('api_key', kiteApiKey);
+    add('data', JSON.stringify([order]));
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
     buyFormTicker = null;
-    alert('✅ Buy GTT placed — id ' + j.gtt_id + '\ntrigger ₹' + j.trigger +
-          (j.bumped ? ' (auto: LTP ₹' + j.ltp + ' + 0.3%)' : '') +
-          '\n\nWhen it fills, the next VTP run records the S2 lot + exit GTT automatically.');
     renderProspects();
   } catch (e) {
-    alert('Buy failed: ' + e.message);
+    alert('Could not open Kite basket: ' + e.message);
     renderProspects();
   }
 }
@@ -1244,10 +1257,10 @@ const buyFormRow = (r) => `
       ₹ <input id="buy-px" type="number" inputmode="decimal" step="any" value="${r.cmp}" placeholder="empty = auto"
            style="width:86px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
       <button id="buy-go" onclick="submitBuy('${r.ticker}',${r.cmp})"
-           style="background:var(--accent2);color:#08101f;border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px">Buy S2</button>
+           style="background:var(--accent2);color:#08101f;border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px">Buy in Kite →</button>
       <span class="badge" style="cursor:pointer" onclick="toggleBuyForm(null)">✕</span>
     </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:4px">buy GTT at trigger ₹ shown · clear it for auto (CMP+0.3%, fires on uptick) · CNC</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">opens Kite with this order prefilled — confirm there · clear ₹ for MARKET · CNC</div>
   </td></tr>`;
 
 function renderProspects() {
