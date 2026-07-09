@@ -1215,18 +1215,19 @@ async function submitBuy(ticker, cmp) {
   if (!qty || qty <= 0) { alert('Enter a valid quantity.'); return; }
   if (pRaw !== '' && (!price || price <= 0)) { alert('Enter a valid price, or clear it for MARKET.'); return; }
   const est = Math.round(qty * (price || cmp));
-  if (!confirm('PLACE REAL BUY ORDER?\n\n' + ticker + '  ×' + qty +
-      (price ? '  LIMIT ₹' + price : '  MARKET (CMP ≈₹' + cmp + ')') +
+  if (!confirm('PLACE REAL BUY GTT?\n\n' + ticker + '  ×' + qty +
+      (price ? '  trigger ₹' + price : '  trigger auto (CMP + 0.3%, fires on next uptick)') +
       '\n≈ ₹' + est.toLocaleString('en-IN') +
-      '\n\nFill auto-classifies as S2; two-leg exit GTT queued on next run.')) return;
+      '\n\nSEBI IP rules block direct orders — this places a buy GTT instead.' +
+      '\nFill auto-classifies as S2; two-leg exit GTT queued on next run.')) return;
   const btn = document.getElementById('buy-go');
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   try {
     const j = await waPost({ fn: 's2_buy', ticker, qty, price });
     buyFormTicker = null;
-    alert('✅ Order placed — id ' + j.order_id +
-          (j.price ? '\nLIMIT ₹' + j.price : '\nMARKET') +
-          '\n\nAfter it fills, ▶ Run VTP records the lot + exit GTT (or the evening auto-run catches it).');
+    alert('✅ Buy GTT placed — id ' + j.gtt_id + '\ntrigger ₹' + j.trigger +
+          (j.bumped ? ' (auto: LTP ₹' + j.ltp + ' + 0.3%)' : '') +
+          '\n\nWhen it fills, the next VTP run records the S2 lot + exit GTT automatically.');
     renderProspects();
   } catch (e) {
     alert('Buy failed: ' + e.message);
@@ -1240,13 +1241,13 @@ const buyFormRow = (r) => `
       <span style="font-weight:700">${r.ticker}</span>
       qty <input id="buy-qty" type="number" inputmode="numeric" step="1" value="${r.qty}"
            style="width:70px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
-      ₹ <input id="buy-px" type="number" inputmode="decimal" step="any" value="${r.cmp}" placeholder="empty = MKT"
+      ₹ <input id="buy-px" type="number" inputmode="decimal" step="any" value="${r.cmp}" placeholder="empty = auto"
            style="width:86px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:4px 6px;font-size:12px">
       <button id="buy-go" onclick="submitBuy('${r.ticker}',${r.cmp})"
            style="background:var(--accent2);color:#08101f;border:none;border-radius:6px;padding:5px 12px;font-weight:700;font-size:12px">Buy S2</button>
       <span class="badge" style="cursor:pointer" onclick="toggleBuyForm(null)">✕</span>
     </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:4px">LIMIT at price shown · clear price for MARKET · CNC, tagged VTPS2</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">buy GTT at trigger ₹ shown · clear it for auto (CMP+0.3%, fires on uptick) · CNC</div>
   </td></tr>`;
 
 function renderProspects() {
