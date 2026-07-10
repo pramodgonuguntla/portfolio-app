@@ -586,15 +586,13 @@ function renderTab(tab) {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-// Row 1: Total PAT · Total Invested · Cash Balance
-// Row 2: PAT of last three FYs (tap a year to drive Row 3)
-// Row 3: Strategy breakdown for the selected FY (default: current FY)
+// Total PAT card (S1/S2/S0 + last-3-FY breakup) · Total Invested · Cash Balance · Funds · Actions
+// S1/S2 sub-cards navigate to Progress tabs; tapping an FY expands its strategy breakdown
 let dashFY = null;
-function setDashFY(fy) { dashFY = fy; renderDashboard(); }
+function toggleDashFY(fy) { dashFY = dashFY === fy ? null : fy; renderDashboard(); }
 
 function renderDashboard() {
   const fys = [...new Set(state.summary.map(r => r.fy))].sort().reverse();
-  if (!dashFY || !fys.includes(dashFY)) dashFY = fys[0] || null;
 
   const totalPAT = state.summary.reduce((a, r) => a + r.pat, 0);
   const invested = state.open.reduce((a, r) => a + r.value + r.charge, 0);  // held lots (all categories)
@@ -679,87 +677,95 @@ function renderDashboard() {
       <div class="grid-3">${stratFunds}</div>`;
   }
 
-  // Row 2 — last three FYs
+  // Total PAT breakups — last three FYs + all-time per strategy
   const last3 = fys.slice(0, 3);
   const fyAgg = fy => {
     const rows = state.summary.filter(r => r.fy === fy);
     return { pat: rows.reduce((a,r) => a + r.pat, 0), lots: rows.reduce((a,r) => a + r.lots, 0) };
   };
+  const stratPat = s => state.summary.filter(r => r.strategy === s).reduce((a,r) => a + r.pat, 0);
+  const subCard = 'background:var(--wash);border-color:var(--inborder)';
+  if (dashFY && !fys.includes(dashFY)) dashFY = null;
 
-  // Row 3 — strategy breakdown for dashFY
-  const stratCards = ['S1','S2','S0'].map(s => {
-    const rows = state.summary.filter(r => r.fy === dashFY && r.strategy === s);
-    if (rows.length === 0) return '';
-    const pat  = rows.reduce((a,r) => a + r.pat, 0);
-    const lots = rows.reduce((a,r) => a + r.lots, 0);
-    const ebit = rows.reduce((a,r) => a + r.ebit, 0);
-    const tax  = rows.reduce((a,r) => a + r.tax, 0);
-    return `
-    <div class="strat-card ${s.toLowerCase()}">
-      <div class="row">${pill(s)}<span class="pat ${cls(pat)}">${fmt(pat)}</span></div>
-      <div class="details">
-        <div class="d-item"><div class="d-label">Lots</div><div class="d-val">${lots}</div></div>
-        <div class="d-item"><div class="d-label">EBIT</div><div class="d-val ${cls(ebit)}">${fmt(ebit)}</div></div>
-        <div class="d-item"><div class="d-label">Tax</div><div class="d-val neg">${fmt(tax)}</div></div>
-      </div>
-    </div>`;
-  }).join('');
+  // Expanded strategy breakdown for tapped FY
+  const fyBreakdown = !dashFY ? '' : (() => {
+    const cards = ['S1','S2','S0'].map(s => {
+      const rows = state.summary.filter(r => r.fy === dashFY && r.strategy === s);
+      if (rows.length === 0) return '';
+      const pat  = rows.reduce((a,r) => a + r.pat, 0);
+      const lots = rows.reduce((a,r) => a + r.lots, 0);
+      const ebit = rows.reduce((a,r) => a + r.ebit, 0);
+      const tax  = rows.reduce((a,r) => a + r.tax, 0);
+      return `
+      <div class="strat-card ${s.toLowerCase()}" style="margin-bottom:6px">
+        <div class="row">${pill(s)}<span class="pat ${cls(pat)}">${fmt(pat)}</span></div>
+        <div class="details">
+          <div class="d-item"><div class="d-label">Lots</div><div class="d-val">${lots}</div></div>
+          <div class="d-item"><div class="d-label">EBIT</div><div class="d-val ${cls(ebit)}">${fmt(ebit)}</div></div>
+          <div class="d-item"><div class="d-label">Tax</div><div class="d-val neg">${fmt(tax)}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-top:8px">${cards || `<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px 0">No closed lots in ${dashFY}</div>`}</div>`;
+  })();
 
   setContent(`
-    <div class="grid-2">
-      <div class="mini-card">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
         <div class="mini-label">Total PAT</div>
-        <div class="mini-value ${cls(totalPAT)}">${fmt(totalPAT)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">all time</div>
+        <div style="font-size:10px;color:var(--muted)">all time</div>
       </div>
-      <div class="mini-card">
-        <div class="mini-label">Total Invested</div>
-        <div class="mini-value">${fmt(invested)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">${state.open.length} held lots</div>
+      <div class="mini-value ${cls(totalPAT)}" style="font-size:26px;margin:2px 0 10px">${fmt(totalPAT)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        ${['S1','S2','S0'].map(s => { const p = stratPat(s);
+          const nav = s === 'S1' ? 'ps1' : s === 'S2' ? 'ps2' : '';
+          return `
+        <div class="mini-card" style="${subCard}${nav ? ';cursor:pointer' : ''}" ${nav ? `onclick="showTab('${nav}')"` : ''}>
+          <div style="margin-bottom:4px">${pill(s)}${nav ? ' <span style="font-size:9px;color:var(--muted)">›</span>' : ''}</div>
+          <div class="mini-value ${cls(p)}" style="font-size:14px">${fmt(p)}</div>
+        </div>`; }).join('')}
       </div>
+      ${last3.length ? `
+      <div class="grid-3" style="margin:8px 0 0">
+        ${last3.map(fy => { const a = fyAgg(fy); const active = fy === dashFY; return `
+        <div class="mini-card" style="${active ? 'background:rgba(59,130,246,0.08);border-color:var(--accent)' : subCard};cursor:pointer" onclick="toggleDashFY('${fy}')">
+          <div class="mini-label" ${active ? 'style="color:var(--accent)"' : ''}>${fy}</div>
+          <div class="mini-value ${cls(a.pat)}" style="font-size:14px">${fmt(a.pat)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">${a.lots} lots</div>
+        </div>`; }).join('')}
+      </div>` : ''}
+      ${fyBreakdown}
     </div>
     <div class="card">
       <div class="card-title">Cash Balance</div>
       ${state.funds && state.funds.live != null ? `
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
         <div>
-          <div class="big-number ${cls(state.funds.live)}">${fmt(state.funds.live)}</div>
-          <div class="big-label">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
+          <div class="big-number ${cls(state.funds.live)}" style="font-size:34px">${fmt(state.funds.live)}</div>
+          <div class="big-label" style="font-size:12px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Refresh</button>
-          <button class="mini-btn" style="color:var(--accent)" onclick="syncBalance()">↓ Write to sheet</button>
+        <div style="display:flex;gap:10px">
+          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2);font-size:14px;padding:10px 16px" onclick="refreshBalance()">↻ Refresh</button>
+          <button class="mini-btn" style="color:var(--accent);font-size:14px;padding:10px 16px" onclick="syncBalance()">↓ Write to sheet</button>
         </div>
       </div>
       ` : `
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
         <div>
-          <div class="big-number ${cls(cash)}">${fmt(cash)}</div>
-          <div class="big-label">from sheet — Kite live n/a</div>
+          <div class="big-number ${cls(cash)}" style="font-size:34px">${fmt(cash)}</div>
+          <div class="big-label" style="font-size:12px">from sheet — Kite live n/a</div>
         </div>
-        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Retry Kite</button>` : ''}
+        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2);font-size:14px;padding:10px 16px" onclick="refreshBalance()">↻ Retry Kite</button>` : ''}
       </div>
       `}
     </div>
+    <div class="mini-card" style="margin-bottom:12px">
+      <div class="mini-label">Total Invested</div>
+      <div class="mini-value">${fmt(invested)}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">${state.open.length} held lots</div>
+    </div>
 
     ${fundsCard}
-
-    ${last3.length ? `
-    <div class="grid-3">
-      ${last3.map(fy => {
-        const a = fyAgg(fy);
-        const active = fy === dashFY;
-        return `
-        <div class="mini-card" onclick="setDashFY('${fy}')"
-             style="cursor:pointer;${active ? 'border-color:var(--accent);background:rgba(59,130,246,0.08)' : ''}">
-          <div class="mini-label" ${active ? 'style="color:var(--accent)"' : ''}>${fy}</div>
-          <div class="mini-value ${cls(a.pat)}">${fmt(a.pat)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:3px">${a.lots} lots</div>
-        </div>`;
-      }).join('')}
-    </div>` : ''}
-
-    ${dashFY ? `<div class="sec-head">Strategy Breakdown <span class="badge">${dashFY}</span></div>${stratCards || '<div class="card" style="text-align:center;color:var(--muted)">No closed lots in ' + dashFY + '</div>'}` : ''}
 
     ${(pendingActs.length || errorActs.length) ? `
     <div class="card" style="border-color:${errorActs.length?'rgba(239,68,68,0.4)':'rgba(245,158,11,0.4)'}">
