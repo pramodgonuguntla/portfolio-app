@@ -101,6 +101,8 @@
   .tbl td { padding: 8px; border-bottom: 1px solid rgba(30,45,69,0.5); vertical-align: middle; }
   .tbl tr:last-child td { border-bottom: none; }
   .tbl tr:hover td { background: var(--wash); }
+  .scroll-tbl { max-height: 396px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .scroll-tbl thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
   .prog-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 6px; }
   .prog-fill { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s ease; }
   .balance-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -923,30 +925,37 @@ function renderProgressS1() {
       </div>`);
     return;
   }
-  // Booked slots from the lot matrix — drives the summary card
-  const totalSlots  = lots.length * 10;
+  // Booked slots from the lot matrix — base is FUNDED lots only (rows without Inv are just pre-created)
+  const fundedLots  = lots.filter(l => parseFloat(l.inv) > 0).length;
+  const fundedSlots = fundedLots * 10;
   const bookedSlots = lots.reduce((a, l) => a + l.slots.filter(s => s.toLowerCase() === 'booked').length, 0);
-  const pct = totalSlots ? Math.round(bookedSlots / totalSlots * 100) : 0;
+  const pct = fundedSlots ? Math.round(bookedSlots / fundedSlots * 100) : 0;
 
   // S1 PAT — overall + FY-wise (from Yearly Summary)
   const s1Sum   = state.summary.filter(r => r.strategy === 'S1');
   const s1Total = s1Sum.reduce((a, r) => a + r.pat, 0);
   const s1FYs   = [...new Set(s1Sum.map(r => r.fy))].sort().reverse();
+  const p1Sub = 'background:var(--wash);border-color:var(--inborder)';
   const patCard = s1Sum.length ? `
     <div class="card">
-      <div class="card-title">S1 PAT Earned</div>
-      <div class="big-number ${cls(s1Total)}">${fmt(s1Total)}</div>
-      <div class="big-label">${s1Sum.reduce((a,r) => a + r.lots, 0)} closed lots · all time</div>
-      <div class="divider"></div>
-      ${s1FYs.map(fy => {
-        const rows = s1Sum.filter(r => r.fy === fy);
-        const pat  = rows.reduce((a,r) => a + r.pat, 0);
-        const lc   = rows.reduce((a,r) => a + r.lots, 0);
-        return `<div class="balance-row">
-          <span class="balance-label">${fy} · ${lc} lots</span>
-          <span class="balance-value ${cls(pat)}">${fmt(pat)}</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="mini-label">S1 PAT Earned</div>
+        <div style="font-size:10px;color:var(--muted)">${s1Sum.reduce((a,r) => a + r.lots, 0)} closed lots · all time</div>
+      </div>
+      <div class="mini-value ${cls(s1Total)}" style="font-size:26px;margin:2px 0 10px">${fmt(s1Total)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        ${s1FYs.map(fy => {
+          const rows = s1Sum.filter(r => r.fy === fy);
+          const pat  = rows.reduce((a,r) => a + r.pat, 0);
+          const lc   = rows.reduce((a,r) => a + r.lots, 0);
+          return `
+        <div class="mini-card" style="${p1Sub}">
+          <div class="mini-label">${fy}</div>
+          <div class="mini-value ${cls(pat)}" style="font-size:14px">${fmt(pat)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">${lc} lots</div>
         </div>`;
-      }).join('')}
+        }).join('')}
+      </div>
     </div>` : '';
 
   // ── Funds: grid Inv total + YS S1 booked/floating; profit booked = slots × 1k
@@ -968,59 +977,83 @@ function renderProgressS1() {
     .filter(r => r.b < 10 && r.eta && String(r.num).indexOf('.') === -1)
     .sort((a, b) => (parseMonYY(a.eta) || 9e15) - (parseMonYY(b.eta) || 9e15))[0];
 
+  // Next flip — earliest scheduled (non-booked) slot month across all lots
+  let nextFlip = null;
+  lots.forEach(l => l.slots.forEach(s => {
+    if (!s || s.toLowerCase() === 'booked') return;
+    const d = parseMonYY(s);
+    if (d && (!nextFlip || d < nextFlip.d)) nextFlip = { d, m: s, num: l.num, month: l.month };
+  }));
+
+  const p1Cell = (l, v, c) => `
+      <div class="mini-card" style="${p1Sub};padding:8px 6px;min-width:0">
+        <div class="mini-label" style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
+        <div style="font-size:12px;font-weight:700;color:${c || 'inherit'}">${v}</div>
+      </div>`;
+  const p1Arrow = '<span style="color:var(--muted);font-size:12px;font-weight:700;text-align:center">→</span>';
   const fundsCard = `
     <div class="card">
-      <div class="card-title">S1 Funds</div>
-      <div class="balance-row"><span class="balance-label">Invested — booked run-rate (${lotRows.filter(r => r.inv).length} × ₹10k)</span>
-        <span class="balance-value">${fmt(invTotal)}</span></div>
-      <div class="balance-row"><span class="balance-label">Floating — above run-rate, reclaimable</span>
-        <span class="balance-value">${fmt(floatS1)}</span></div>
-      ${ysBookedS1 && Math.round(ysBookedS1) !== Math.round(invTotal) ? `
-      <div class="balance-row"><span class="balance-label" style="color:#fbbf24">⚠ Yearly Summary Booked Funds differs</span>
-        <span class="balance-value" style="color:#fbbf24">${fmt(ysBookedS1)}</span></div>` : ''}
-      <div class="divider"></div>
-      <div class="balance-row"><span class="balance-label">Profit booked (${bookedSlots} × ₹1,000)</span>
-        <span class="balance-value pos">${fmt(bookedAmt)}</span></div>
-      <div class="balance-row"><span class="balance-label">Recovered vs invested</span>
-        <span class="balance-value">${recovPct}%</span></div>
-      ${nextSplit ? `
-      <div class="balance-row"><span class="balance-label">Next split (lot fully booked)</span>
-        <span class="balance-value">#${nextSplit.num} ${nextSplit.month} → ${nextSplit.eta}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="mini-label">S1 Invested</div>
+        <div style="font-size:10px;color:var(--muted)">booked run-rate · ${lotRows.filter(r => r.inv).length} × ₹10k</div>
+      </div>
+      <div class="mini-value" style="font-size:26px;margin:2px 0 10px">${fmt(invTotal)}</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:4px;align-items:center">
+        ${p1Cell('Floating', fmt(floatS1))}${p1Arrow}${p1Cell('Profit booked', fmt(bookedAmt), 'var(--positive)')}${p1Arrow}${p1Cell('Recovered', recovPct + '%', 'var(--accent)')}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">
+        Profit booked = ${bookedSlots} × ₹1,000 · recovered vs invested
+        ${ysBookedS1 && Math.round(ysBookedS1) !== Math.round(invTotal) ? `<br><span style="color:#fbbf24">⚠ Yearly Summary Booked Funds differs: ${fmt(ysBookedS1)}</span>` : ''}
+        ${nextSplit ? `<br>Next split: #${nextSplit.num} ${nextSplit.month} → ${nextSplit.eta}` : ''}
+        ${nextFlip ? `<br>Next flip: #${nextFlip.num} ${nextFlip.month} → ${nextFlip.m}` : ''}
+      </div>
     </div>`;
 
+  const slotFlex = 'display:flex;width:100%';
+  const slotCell = 'flex:1;text-align:center';
+  const bpHeader = `<div style="${slotFlex}">${Array.from({length: 10}, (_, i) => `<span style="${slotCell}">${i + 1}</span>`).join('')}</div>`;
+  const bpCells = b => `
+    <div style="${slotFlex};font-size:11px;font-weight:700">
+      ${Array.from({length: 10}, (_, i) => `<span style="${slotCell};color:${i < b ? 'var(--positive)' : 'var(--negative)'}">${i < b ? 'B' : 'P'}</span>`).join('')}
+    </div>`;
   const lotsCard = `
     <div class="sec-head" style="margin-top:14px">Lots <span class="badge">${lotRows.filter(r => r.b === 10).length} complete</span></div>
     <div class="card" style="padding:0;overflow:hidden">
+      <div class="scroll-tbl">
       <table class="tbl">
-        <thead><tr><th>#</th><th>Lot</th><th style="width:42%">Booked</th><th style="text-align:right">Done by</th></tr></thead>
+        <thead><tr><th>#</th><th>Lot</th><th style="width:52%">${bpHeader}</th><th style="text-align:right">Done by</th></tr></thead>
         <tbody>
           ${lotRows.map(r => `
           <tr style="${r.inv ? '' : 'opacity:0.5'}">
             <td style="color:var(--muted)">${r.num}</td>
             <td style="font-weight:600">${r.month}${r.inv ? '' : `<div style="font-size:9px;color:var(--muted)">not funded yet</div>`}</td>
-            <td><div class="prog-bar" style="height:6px"><div class="prog-fill" style="width:${r.b * 10}%"></div></div>
-                <div style="font-size:9px;color:var(--muted);margin-top:1px">${r.b}/10 · ${fmt(r.b * 1000)}</div></td>
+            <td>${bpCells(r.b)}</td>
             <td style="text-align:right;font-size:11px;color:${r.b === 10 ? 'var(--positive)' : 'var(--muted)'};font-weight:${r.b === 10 ? 700 : 400}">
               ${r.b === 10 ? '✓ full' : (r.eta || '—')}</td>
           </tr>`).join('')}
         </tbody>
       </table>
+      </div>
     </div>`;
 
   const now = new Date();
   setContent(`
-    <div class="sec-head">Progress S1 <span class="badge">${lots.length} lots · ${totalSlots} bookings</span>
-      ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent2)" onclick="syncProgress()">✓ sync bookings</span>` : ''}</div>
+    <div class="sec-head">Progress S1
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent2);font-size:16px;line-height:1" title="Sync bookings" onclick="syncProgress()">↻</span>` : ''}
+        <span class="badge" style="cursor:pointer;font-size:16px;line-height:1" title="Back to Dashboard" onclick="showTab('dashboard')">←</span>
+      </span></div>
     ${patCard}
+    ${fundsCard}
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div><span class="pos" style="font-size:20px;font-weight:700">${bookedSlots}</span><span style="color:var(--muted);font-size:12px"> / ${totalSlots} bookings done</span></div>
+        <div><span class="pos" style="font-size:20px;font-weight:700">${bookedSlots}</span><span style="color:var(--muted);font-size:12px"> / ${fundedSlots} bookings done · funded lots</span></div>
         <div style="font-size:12px;color:var(--muted)">${pct}%</div>
       </div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
     </div>
-    ${fundsCard}
     <div class="card" style="padding:0;overflow:hidden">
+      <div class="scroll-tbl">
       <table class="tbl">
         <thead><tr><th>Month</th><th>Bookings</th><th style="text-align:right">Cumulative</th></tr></thead>
         <tbody>
@@ -1029,14 +1062,15 @@ function renderProgressS1() {
             const isCur    = d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
             const isConsol = /consol/i.test(b.label);
             const isPast   = d && d < new Date(now.getFullYear(), now.getMonth(), 1);
-            return `<tr style="${isCur ? 'background:rgba(59,130,246,0.12)' : isConsol ? 'background:var(--wash)' : ''}">
-              <td style="font-weight:${isConsol || isCur ? 700 : 600};${isCur ? 'color:var(--accent)' : isConsol ? '' : isPast ? 'color:var(--positive)' : ''}">${b.label}${isCur ? ' ←' : ''}</td>
-              <td>${b.cnt || '—'}</td>
-              <td style="text-align:right;font-weight:600;color:var(--muted)">${b.cum || '—'}</td>
+            return `<tr style="${isCur ? 'background:rgba(59,130,246,0.12)' : isConsol ? 'background:rgba(139,92,246,0.14)' : ''}">
+              <td style="font-weight:${isConsol || isCur ? 700 : 600};${isCur ? 'color:var(--accent)' : isConsol ? 'color:var(--accent2)' : isPast ? 'color:var(--positive)' : ''}">${b.label}${isCur ? ' ←' : ''}</td>
+              <td style="${isConsol ? 'color:var(--accent2);font-weight:700' : ''}">${b.cnt || '—'}</td>
+              <td style="text-align:right;font-weight:600;color:${isConsol ? 'var(--accent2)' : 'var(--muted)'}">${b.cum || '—'}</td>
             </tr>`;
           }).join('')}
         </tbody>
       </table>
+      </div>
     </div>
     ${lotsCard}`);
 }
