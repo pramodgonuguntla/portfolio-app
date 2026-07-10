@@ -162,7 +162,7 @@
     </div>
     <div style="display:flex;gap:8px">
       <button id="kite-btn" onclick="kiteLogin()" title="Refresh Kite token">🔑</button>
-      <button id="runvtp-btn" onclick="runVtp()" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶ Run VTP</button>
+      <button id="runvtp-btn" onclick="runVtp()" title="Run VTP" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶</button>
       <button id="refresh-btn" onclick="loadData()">↻</button>
       <button id="theme-btn" onclick="toggleTheme()" title="Light / dark theme">☾</button>
       <button id="settings-btn" onclick="document.getElementById('config').classList.add('open')">⚙</button>
@@ -1021,7 +1021,7 @@ function renderProgressS1() {
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
       <table class="tbl">
-        <thead><tr><th>#</th><th>Lot</th><th style="width:52%">${bpHeader}</th><th style="text-align:right">Done by</th></tr></thead>
+        <thead><tr><th>#</th><th>Lot</th><th style="width:52%">${bpHeader}</th><th style="text-align:right">Target</th></tr></thead>
         <tbody>
           ${lotRows.map(r => `
           <tr style="${r.inv ? '' : 'opacity:0.5'}">
@@ -1094,7 +1094,10 @@ async function submitEmi() {
 }
 function emiFormHtml() {
   if (localWB) return '';
-  if (!emiFormOpen) return `<div class="card" style="padding:10px 14px;cursor:pointer;color:var(--accent)" onclick="toggleEmiForm()">＋ Add this month's EMI</div>`;
+  if (!emiFormOpen) return `<div class="card" style="padding:10px 14px;cursor:pointer;color:var(--accent);display:flex;justify-content:space-between;align-items:center" onclick="toggleEmiForm()">
+    <span>＋ Add this month's EMI</span>
+    <span class="badge" style="cursor:pointer;font-size:16px;line-height:1;color:var(--text)" title="Back to Dashboard" onclick="event.stopPropagation();showTab('dashboard')">←</span>
+  </div>`;
   const today = new Date().toISOString().substring(0, 10);
   return `<div class="card" style="overflow:hidden">
     <div class="card-title">Record EMI</div>
@@ -1114,6 +1117,9 @@ function renderProgressS2() {
   const emiPaid = Math.abs((state.fundBlock.s2||{})['Cash Out'] || 0);
   const s2Pat   = (state.fundBlock.s2||{})['PAT'] || 0;
   const shortfall = s2Pat - emiPaid;
+  const emiRows = (state.s2xirr || []).filter(r => r.type === 'EMI');
+  const principalPaid = emiRows.reduce((a, r) => a + (r.principal || 0), 0);
+  const interestPaid  = emiRows.reduce((a, r) => a + (r.interest  || 0), 0);
 
   const cfNet      = buildCF_Net();
   const cfGross    = buildCF_Gross();
@@ -1158,24 +1164,33 @@ function renderProgressS2() {
     <div class="card">
       <div class="card-title">PAT vs EMI Paid</div>
       <div class="grid-3">
-        <div class="mini-card"><div class="mini-label pos">PAT Earned</div><div class="mini-value pos">${fmt(s2Pat)}</div></div>
-        <div class="mini-card" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.25)"><div class="mini-label" style="color:var(--accent)">EMI Paid</div><div class="mini-value" style="color:var(--accent)">${fmt(emiPaid)}</div></div>
-        <div class="mini-card" style="background:${shortfall>=0?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)'};border-color:${shortfall>=0?'rgba(16,185,129,0.25)':'rgba(239,68,68,0.25)'}"><div class="mini-label" style="color:${shortfall>=0?'var(--positive)':'var(--negative)'}">${shortfall>=0?'Surplus':'Shortfall'}</div><div class="mini-value" style="color:${shortfall>=0?'var(--positive)':'var(--negative)'}">${fmtN(shortfall)}</div></div>
+        <div class="mini-card"><div class="mini-label pos">PAT Earned</div><div class="mini-value pos" style="font-size:15px">${fmt(s2Pat)}</div></div>
+        <div class="mini-card" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.25)"><div class="mini-label" style="color:var(--accent)">Principal Paid</div><div class="mini-value" style="color:var(--accent);font-size:15px">${fmt(principalPaid)}</div></div>
+        <div class="mini-card" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.25)"><div class="mini-label" style="color:var(--negative)">Interest Paid</div><div class="mini-value" style="color:var(--negative);font-size:15px">${fmt(interestPaid)}</div></div>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px">
+        EMI paid ${fmt(emiPaid)} · <span style="color:${shortfall>=0?'var(--positive)':'var(--negative)'};font-weight:700">${shortfall>=0?'Surplus':'Shortfall'} ${fmtN(shortfall)}</span> vs PAT</div>
     </div>
 
     <div class="card">
       <div class="card-title">XIRR — S2 Strategy</div>
       <div class="grid-3">
-        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Net (with loan)</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pNet!==null?cls(pNet):''}">${pNet!==null?fmtP(pNet):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">EMI netted in PV</div></div>
-        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Gross (own funds)</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pGross!==null?cls(pGross):''}">${pGross!==null?fmtP(pGross):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">No EMI drag</div></div>
-        <div class="mini-card" style="text-align:center"><div class="mini-label" style="color:var(--muted)">Interest-only</div><div style="font-size:24px;font-weight:700;margin-top:4px" class="${pInterest!==null?cls(pInterest):''}">${pInterest!==null?fmtP(pInterest):'—'}</div><div style="font-size:9px;color:var(--muted);margin-top:3px">${pInterest===null?'Fill Interest col':'Principal neutral'}</div></div>
+        ${[
+          ['Net (with loan)',   pNet],
+          ['Gross (own funds)', pGross],
+          ['Interest-only',     pInterest],
+        ].map(([lbl, v]) => `
+        <div class="mini-card" style="display:flex;flex-direction:column;justify-content:space-between;padding:12px 8px">
+          <div class="mini-label" style="font-size:9px;white-space:nowrap">${lbl}</div>
+          <div class="mini-value ${v !== null ? cls(v) : ''}" style="font-size:15px">${v !== null ? fmtP(v) : '—'}</div>
+        </div>`).join('')}
       </div>
     </div>
 
     <div class="sec-head" style="margin-top:4px">Monthly PAT Progress</div>
     ${curHtml}
     <div class="card" style="padding:0;overflow:hidden">
+      <div class="scroll-tbl">
       <table class="tbl">
         <thead><tr><th>#</th><th>Month</th><th>Target</th><th>Actual</th><th>Cum Target</th><th>Cum Actual</th></tr></thead>
         <tbody>${(state.progress2||[]).map(r => {
@@ -1192,6 +1207,7 @@ function renderProgressS2() {
           </tr>`;
         }).join('')}</tbody>
       </table>
+      </div>
     </div>`);
 }
 
@@ -1531,7 +1547,7 @@ async function runVtp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!confirm('Run the VTP daily check now?')) return;
   const btn = document.getElementById('runvtp-btn');
-  btn.disabled = true; btn.textContent = '⏳ Running…';
+  btn.disabled = true; btn.textContent = '⏳';
   try {
     const j = await waPost({ fn: 'run' });
     const pend = (j.actions || []).filter(a => a.status === 'Pending').length;
@@ -1542,7 +1558,7 @@ async function runVtp() {
   } catch (e) {
     alert('Run failed: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '▶ Run VTP';
+    btn.disabled = false; btn.textContent = '▶';
   }
 }
 
