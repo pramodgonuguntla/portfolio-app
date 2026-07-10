@@ -595,7 +595,6 @@ function renderDashboard() {
   const fys = [...new Set(state.summary.map(r => r.fy))].sort().reverse();
 
   const totalPAT = state.summary.reduce((a, r) => a + r.pat, 0);
-  const invested = state.open.reduce((a, r) => a + r.value + r.charge, 0);  // held lots (all categories)
   const cash     = state.fundBlock.actual || 0;
 
   const pendingActs = state.actions.filter(a => a.status === 'Pending');
@@ -614,67 +613,66 @@ function renderDashboard() {
 
   let fundsCard = '';
   if (fundsIn > 0) {
-    // Waterfall: running level after each step; bars span [before → after]
-    const steps = [];
-    let cum = 0;
-    const add = (label, v, kind, sub) => {
-      const from = cum; cum = kind === 'level' ? v : cum + v;
-      steps.push({ label, v: kind === 'level' ? v : v, from: Math.min(from, cum), to: Math.max(from, cum), kind, sub,
-                   neg: kind !== 'level' && v < 0 });
-    };
-    add('Funds input', fundsIn, 'flow', 'booked ' + fmtF(fv(fb.byStrategy, 'Booked Funds')) + ' + floating ' + fmtF(fv(fb.byStrategy, 'Floating Funds')));
-    add('PAT earned', patAll, 'flow');
-    add('In holdings', investedAll, 'flow');
-    add('Tax provision', taxProv, 'flow');
-    add('Cash out', cashOut, 'flow');
-    steps.push({ label: 'Ideal balance', v: idealBal, from: 0, to: Math.abs(idealBal), kind: 'level' });
-    steps.push({ label: 'Actual balance', v: actualBal, from: 0, to: Math.abs(actualBal), kind: 'level' });
-    steps.push({ label: 'Charges till date', v: idealBal - actualBal, from: 0, to: Math.abs(idealBal - actualBal), kind: 'charges' });
-
-    const maxScale = Math.max(...steps.map(s => s.to)) || 1;
-    const barColor = s => s.kind === 'level' ? 'var(--accent)' : s.kind === 'charges' ? 'var(--warn)' : s.neg ? 'var(--negative)' : 'var(--positive)';
-    const wfRows = steps.map(s => `
-      <div style="display:flex;align-items:center;gap:8px;margin:7px 0">
-        <div style="width:92px;flex-shrink:0;font-size:11px;font-weight:${s.kind !== 'flow' ? 700 : 600}">
-          ${s.label}${s.sub ? `<div style="font-size:9px;color:var(--muted);font-weight:400">${s.sub}</div>` : ''}</div>
-        <div style="flex:1;position:relative;height:14px;background:var(--wash);border-radius:4px">
-          <div style="position:absolute;top:0;height:100%;border-radius:4px;background:${barColor(s)};opacity:0.85;
-                      left:${(s.from / maxScale * 100).toFixed(1)}%;width:${Math.max((s.to - s.from) / maxScale * 100, 1.2).toFixed(1)}%"></div>
-        </div>
-        <div style="width:76px;flex-shrink:0;text-align:right;font-size:11px;font-weight:700;
-                    color:${s.kind === 'charges' ? 'var(--warn)' : s.neg ? 'var(--negative)' : s.kind === 'level' ? 'var(--accent)' : 'var(--positive)'}">
-          ${s.kind === 'flow' && s.v >= 0 ? '+' : ''}${fmtF(s.v)}</div>
-      </div>`).join('');
-
-    // Per-strategy cards: how each strategy uses its funds
-    const stratFunds = ['S2', 'S1', 'S0'].map(s => {
-      const m = s === 'S2' ? fb.s2 : s === 'S1' ? fb.s1 : fb.s0;
-      if (!m || (!fv(m, 'Booked Funds') && !fv(m, 'PAT'))) return '';
-      const rows = [
-        ['Booked',   fv(m, 'Booked Funds'), ''],
-        ['Floating', fv(m, 'Floating Funds'), ''],
-        ['PAT',      fv(m, 'PAT'), 'pos'],
-        ['Holding',  fv(m, 'Currently Invested'), 'neg'],
-        ['Ideal',    fv(m, 'Ideal Fund Balance'), 'bold'],
-      ].filter(r => r[1]);
-      return `
-      <div class="mini-card" style="text-align:left">
-        <div style="margin-bottom:6px">${pill(s)}</div>
-        ${rows.map(([l, v, k]) => `
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin:3px 0">
-          <span style="color:var(--muted)">${l}</span>
-          <span style="font-weight:${k === 'bold' ? 700 : 600};color:${v < 0 ? 'var(--negative)' : k === 'pos' ? 'var(--positive)' : 'inherit'}">${fmtF(v)}</span>
-        </div>`).join('')}
+    // Flow: input + PAT − holdings + tax provision − cash out = ideal · ideal − actual = charges
+    const fSub = 'background:var(--wash);border-color:var(--inborder);padding:8px 6px;min-width:0';
+    const flow = [
+      { l: 'PAT earned',    v: patAll,      c: 'var(--positive)' },
+      { l: 'In holdings',   v: investedAll, c: 'var(--negative)' },
+      { l: 'Tax provision', v: taxProv,     c: taxProv < 0 ? 'var(--negative)' : 'var(--positive)' },
+      { l: 'Cash out',      v: cashOut,     c: 'var(--negative)' },
+      { l: 'Ideal balance', v: idealBal,    c: 'var(--accent)' },
+      { l: 'Actual balance',v: actualBal,   c: 'var(--accent)' },
+    ];
+    const fCell = f => `
+      <div class="mini-card" style="${fSub}">
+        <div class="mini-label" style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.l}</div>
+        <div style="font-size:12px;font-weight:700;color:${f.c}">${fmtF(Math.abs(f.v))}</div>
       </div>`;
-    }).join('');
+    const fArrow = '<span style="color:var(--muted);font-size:12px;font-weight:700;text-align:center">→</span>';
+    const fRow = cells => `
+      <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:4px;align-items:center;margin-top:6px">
+        ${cells.map(fCell).join(fArrow)}
+      </div>`;
+    const flowCards = fRow(flow.slice(0, 3)) + fRow(flow.slice(3, 6));
+
+    // Per-strategy funds — one compact table (label col + S2/S1/S0 cols), no horizontal overflow
+    const mFor = s => s === 'S2' ? fb.s2 : s === 'S1' ? fb.s1 : fb.s0;
+    const strats = ['S2', 'S1', 'S0'].filter(s => { const m = mFor(s); return m && (fv(m, 'Booked Funds') || fv(m, 'PAT')); });
+    const sfRows = [
+      ['Booked',   'Booked Funds'],
+      ['Floating', 'Floating Funds'],
+      ['PAT',      'PAT'],
+      ['Holding',  'Currently Invested'],
+      ['Ideal',    'Ideal Fund Balance'],
+    ].filter(([, key]) => strats.some(s => fv(mFor(s), key)));
+    const sfColor = (lbl, v) => v < 0 ? 'var(--negative)' : lbl === 'PAT' ? 'var(--positive)' : 'inherit';
+    const stratFunds = strats.length ? `
+      <div class="card" style="padding:12px 14px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <tr><td></td>${strats.map(s => `<td style="text-align:right;padding:2px 0 6px">${pill(s)}</td>`).join('')}</tr>
+          ${sfRows.map(([lbl, key]) => `
+          <tr>
+            <td style="color:var(--muted);padding:3px 0">${lbl}</td>
+            ${strats.map(s => { const v = fv(mFor(s), key); return `
+            <td style="text-align:right;padding:3px 0 3px 8px;font-weight:${lbl === 'Ideal' ? 700 : 600};color:${sfColor(lbl, v)}">${v ? fmtF(Math.abs(v)) : '—'}</td>`; }).join('')}
+          </tr>`).join('')}
+        </table>
+      </div>` : '';
 
     fundsCard = `
       <div class="sec-head" style="margin-top:14px">Funds</div>
-      <div class="card">${wfRows}
-        <div style="font-size:10px;color:var(--muted);margin-top:6px">
-          input + PAT − holdings + tax provision − cash out = ideal · ideal − actual = untracked demat charges</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="mini-label">Funds Input</div>
+          <div style="font-size:10px;color:var(--muted)">booked ${fmtF(fv(fb.byStrategy, 'Booked Funds'))} + floating ${fmtF(fv(fb.byStrategy, 'Floating Funds'))}</div>
+        </div>
+        <div class="mini-value" style="font-size:26px;margin:2px 0 10px">${fmtF(fundsIn)}</div>
+        ${flowCards}
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:8px">
+          <span>Charges till date: <b style="color:var(--warn)">${fmtF(idealBal - actualBal)}</b> (ideal − actual)</span>
+        </div>
       </div>
-      <div class="grid-3">${stratFunds}</div>`;
+      ${stratFunds}`;
   }
 
   // Total PAT breakups — last three FYs + all-time per strategy
@@ -739,30 +737,25 @@ function renderDashboard() {
     <div class="card">
       <div class="card-title">Cash Balance</div>
       ${state.funds && state.funds.live != null ? `
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
-          <div class="big-number ${cls(state.funds.live)}" style="font-size:34px">${fmt(state.funds.live)}</div>
-          <div class="big-label" style="font-size:12px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
+          <div class="big-number ${cls(state.funds.live)}" style="font-size:26px">${fmt(state.funds.live)}</div>
+          <div class="big-label" style="font-size:10px">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
         </div>
-        <div style="display:flex;gap:10px">
-          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2);font-size:14px;padding:10px 16px" onclick="refreshBalance()">↻ Refresh</button>
-          <button class="mini-btn" style="color:var(--accent);font-size:14px;padding:10px 16px" onclick="syncBalance()">↓ Write to sheet</button>
+        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Refresh</button>
+          <button class="mini-btn" style="color:var(--accent)" onclick="syncBalance()">↓ Write to sheet</button>
         </div>
       </div>
       ` : `
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
-          <div class="big-number ${cls(cash)}" style="font-size:34px">${fmt(cash)}</div>
-          <div class="big-label" style="font-size:12px">from sheet — Kite live n/a</div>
+          <div class="big-number ${cls(cash)}" style="font-size:26px">${fmt(cash)}</div>
+          <div class="big-label" style="font-size:10px">from sheet — Kite live n/a</div>
         </div>
-        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2);font-size:14px;padding:10px 16px" onclick="refreshBalance()">↻ Retry Kite</button>` : ''}
+        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2);flex-shrink:0" onclick="refreshBalance()">↻ Fetch Balance</button>` : ''}
       </div>
       `}
-    </div>
-    <div class="mini-card" style="margin-bottom:12px">
-      <div class="mini-label">Total Invested</div>
-      <div class="mini-value">${fmt(invested)}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">${state.open.length} held lots</div>
     </div>
 
     ${fundsCard}
