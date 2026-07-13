@@ -797,6 +797,18 @@ function setPosCat(id) {
   renderPositions();
 }
 
+// Strategy filter (ANDs with category / FY) — shared chip builder
+let posStrat    = localStorage.getItem('vtp_pos_strat') || 'all';
+let closedStrat = 'all';
+function setPosStrat(s)    { posStrat = s; localStorage.setItem('vtp_pos_strat', s); renderPositions(); }
+function setClosedStrat(s) { closedStrat = s; renderClosed(currentClosedFY); }
+function stratChips(current, fnName, rows) {
+  return `<div class="sub-tabs">${['all', 'S1', 'S2', 'S0'].map(s => {
+    const n = s === 'all' ? rows.length : rows.filter(r => r.strategy === s).length;
+    return `<div class="sub-tab ${s === current ? 'active' : ''}" onclick="${fnName}('${s}')">${s === 'all' ? 'All' : s} <span style="opacity:0.6">${n}</span></div>`;
+  }).join('')}</div>`;
+}
+
 // ── Table sorting ─────────────────────────────────────────────────────────────
 let posSort    = { key: 'value',    dir: -1 };
 let closedSort = { key: 'sellDate', dir: -1 };
@@ -821,14 +833,15 @@ function setClosedSort(key) { closedSort = closedSort.key === key ? { key, dir: 
 const dateVal = s => { const d = parsePortDate(s); return d ? d.getTime() : 0; };
 
 function renderPositions() {
-  const cat  = POS_CATS.find(c => c.id === positionsCat) || POS_CATS[0];
-  const rows = state.repo.filter(cat.test);
+  const cat     = POS_CATS.find(c => c.id === positionsCat) || POS_CATS[0];
+  const catRows = state.repo.filter(cat.test);
+  const rows    = catRows.filter(r => posStrat === 'all' || r.strategy === posStrat);
   const isWatch = cat.id === 'wl' || cat.id === 'oob';
 
   const chips = `<div class="sub-tabs">${POS_CATS.map(c => {
     const n = state.repo.filter(c.test).length;
     return `<div class="sub-tab ${c.id===positionsCat?'active':''}" onclick="setPosCat('${c.id}')">${c.label} <span style="opacity:0.6">${n}</span></div>`;
-  }).join('')}</div>`;
+  }).join('')}</div>` + stratChips(posStrat, 'setPosStrat', catRows);
 
   if (rows.length === 0) {
     setContent(`${chips}<div class="card" style="text-align:center;padding:32px;color:var(--muted)">No rows in this category.</div>`);
@@ -1224,6 +1237,7 @@ async function syncProgress() {
     if ((j.newLots   || []).length) extra.push('🆕 New lot(s): '  + j.newLots.join(', '));
     if ((j.invFilled || []).length) extra.push('💰 Inv filled: '  + j.invFilled.join(', '));
     if ((j.splits    || []).length) extra.push('🔀 Split: '       + j.splits.join('; '));
+    if (j.projShift) extra.push('📅 Projection shifted +' + j.projShift + ' month(s) → opens at ' + j.projFirst + ' (ahead of schedule)');
     alert(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
     await loadData(); showTab('ps1');
   } catch (e) { alert('Sync failed: ' + e.message); }
@@ -1437,7 +1451,8 @@ function renderClosed(selectedFY) {
   const fys = [...new Set(state.closed.map(r => r.fy))].filter(Boolean).sort().reverse();
   const fy  = selectedFY || currentClosedFY || fys[0] || 'FY2026-27';
   currentClosedFY = fy;
-  const rows = sortRows(state.closed.filter(r => r.fy === fy), closedSort.key, closedSort.dir, {
+  const fyRows = state.closed.filter(r => r.fy === fy);
+  const rows = sortRows(fyRows.filter(r => closedStrat === 'all' || r.strategy === closedStrat), closedSort.key, closedSort.dir, {
     scrip:    r => r.scrip,
     buyDate:  r => dateVal(r.buyDate),
     sellDate: r => dateVal(r.sellDate),
@@ -1451,6 +1466,7 @@ function renderClosed(selectedFY) {
     <div class="sub-tabs">
       ${fys.map(f => `<div class="sub-tab ${f===fy?'active':''}" onclick="renderClosed('${f}')">${f}</div>`).join('')}
     </div>` : ''}
+    ${stratChips(closedStrat, 'setClosedStrat', fyRows)}
     <div class="grid-3">
       <div class="mini-card"><div class="mini-label">PAT</div><div class="mini-value ${cls(totalPAT)}">${fmt(totalPAT)}</div></div>
       <div class="mini-card"><div class="mini-label pos">Wins</div><div class="mini-value pos">${wins}</div></div>
