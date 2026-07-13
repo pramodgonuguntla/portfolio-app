@@ -797,16 +797,29 @@ function setPosCat(id) {
   renderPositions();
 }
 
-// Strategy filter (ANDs with category / FY) — shared chip builder
-let posStrat    = localStorage.getItem('vtp_pos_strat') || 'all';
-let closedStrat = 'all';
-function setPosStrat(s)    { posStrat = s; localStorage.setItem('vtp_pos_strat', s); renderPositions(); }
-function setClosedStrat(s) { closedStrat = s; renderClosed(currentClosedFY); }
-function stratChips(current, fnName, rows) {
-  return `<div class="sub-tabs">${['all', 'S1', 'S2', 'S0'].map(s => {
-    const n = s === 'all' ? rows.length : rows.filter(r => r.strategy === s).length;
-    return `<div class="sub-tab ${s === current ? 'active' : ''}" onclick="${fnName}('${s}')">${s === 'all' ? 'All' : s} <span style="opacity:0.6">${n}</span></div>`;
-  }).join('')}</div>`;
+// Strategy filter (ANDs with category / FY) — multi-select toggle chips.
+// Tap chips to combine (e.g. S1+S0 = everything except S2); empty selection = All.
+let posStratSet    = new Set((localStorage.getItem('vtp_pos_strat') || '').split(',').filter(s => /^S[012]$/.test(s)));
+let closedStratSet = new Set();
+const stratMatch = (sel, r) => sel.size === 0 || sel.has(r.strategy);
+function togglePosStrat(s) {
+  if (s === 'all') posStratSet.clear();
+  else posStratSet.has(s) ? posStratSet.delete(s) : posStratSet.add(s);
+  localStorage.setItem('vtp_pos_strat', [...posStratSet].join(','));
+  renderPositions();
+}
+function toggleClosedStrat(s) {
+  if (s === 'all') closedStratSet.clear();
+  else closedStratSet.has(s) ? closedStratSet.delete(s) : closedStratSet.add(s);
+  renderClosed(currentClosedFY);
+}
+function stratChips(sel, fnName, rows) {
+  const chip = (id, label, active, n) =>
+    `<div class="sub-tab ${active ? 'active' : ''}" onclick="${fnName}('${id}')">${label} <span style="opacity:0.6">${n}</span></div>`;
+  return `<div class="sub-tabs">
+    ${chip('all', 'All', sel.size === 0, rows.length)}
+    ${['S1', 'S2', 'S0'].map(s => chip(s, s, sel.has(s), rows.filter(r => r.strategy === s).length)).join('')}
+  </div>`;
 }
 
 // ── Table sorting ─────────────────────────────────────────────────────────────
@@ -835,13 +848,13 @@ const dateVal = s => { const d = parsePortDate(s); return d ? d.getTime() : 0; }
 function renderPositions() {
   const cat     = POS_CATS.find(c => c.id === positionsCat) || POS_CATS[0];
   const catRows = state.repo.filter(cat.test);
-  const rows    = catRows.filter(r => posStrat === 'all' || r.strategy === posStrat);
+  const rows    = catRows.filter(r => stratMatch(posStratSet, r));
   const isWatch = cat.id === 'wl' || cat.id === 'oob';
 
   const chips = `<div class="sub-tabs">${POS_CATS.map(c => {
     const n = state.repo.filter(c.test).length;
     return `<div class="sub-tab ${c.id===positionsCat?'active':''}" onclick="setPosCat('${c.id}')">${c.label} <span style="opacity:0.6">${n}</span></div>`;
-  }).join('')}</div>` + stratChips(posStrat, 'setPosStrat', catRows);
+  }).join('')}</div>` + stratChips(posStratSet, 'togglePosStrat', catRows);
 
   if (rows.length === 0) {
     setContent(`${chips}<div class="card" style="text-align:center;padding:32px;color:var(--muted)">No rows in this category.</div>`);
@@ -1451,8 +1464,9 @@ function renderClosed(selectedFY) {
   const fys = [...new Set(state.closed.map(r => r.fy))].filter(Boolean).sort().reverse();
   const fy  = selectedFY || currentClosedFY || fys[0] || 'FY2026-27';
   currentClosedFY = fy;
-  const fyRows = state.closed.filter(r => r.fy === fy);
-  const rows = sortRows(fyRows.filter(r => closedStrat === 'all' || r.strategy === closedStrat), closedSort.key, closedSort.dir, {
+  const allFY  = fy === 'ALL';
+  const fyRows = allFY ? state.closed : state.closed.filter(r => r.fy === fy);
+  const rows = sortRows(fyRows.filter(r => stratMatch(closedStratSet, r)), closedSort.key, closedSort.dir, {
     scrip:    r => r.scrip,
     buyDate:  r => dateVal(r.buyDate),
     sellDate: r => dateVal(r.sellDate),
@@ -1461,12 +1475,13 @@ function renderClosed(selectedFY) {
   const wins  = rows.filter(r => r.pat > 0).length;
   const loss  = rows.filter(r => r.pat < 0).length;
   setContent(`
-    <div class="sec-head">Closed Trades <span class="badge">${fy}</span></div>
+    <div class="sec-head">Closed Trades <span class="badge">${allFY ? 'All FYs' : fy}</span></div>
     ${fys.length > 1 ? `
     <div class="sub-tabs">
+      <div class="sub-tab ${allFY?'active':''}" onclick="renderClosed('ALL')">All</div>
       ${fys.map(f => `<div class="sub-tab ${f===fy?'active':''}" onclick="renderClosed('${f}')">${f}</div>`).join('')}
     </div>` : ''}
-    ${stratChips(closedStrat, 'setClosedStrat', fyRows)}
+    ${stratChips(closedStratSet, 'toggleClosedStrat', fyRows)}
     <div class="grid-3">
       <div class="mini-card"><div class="mini-label">PAT</div><div class="mini-value ${cls(totalPAT)}">${fmt(totalPAT)}</div></div>
       <div class="mini-card"><div class="mini-label pos">Wins</div><div class="mini-value pos">${wins}</div></div>
