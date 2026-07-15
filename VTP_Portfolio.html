@@ -1420,6 +1420,15 @@ function renderActions() {
       <div class="mini-card"><div class="mini-label neg">Errors</div><div class="mini-value neg">${errors}</div></div>
     </div>
     <div class="card">
+      ${canExec && pending + errors > 0 ? (() => {
+        const selRows = state.actions.filter(a => a.status !== 'Done').map(a => a.sheetRow);
+        const allSel  = selRows.length > 0 && selRows.every(r => selectedRows.has(r));
+        return `
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px">
+          <input type="checkbox" class="row-check" onchange="selectAllActions(this)" ${allSel ? 'checked' : ''}/>
+          <span style="font-size:11px;color:var(--muted)">Select all (${selRows.length})</span>
+        </div>`;
+      })() : ''}
       ${state.actions.map(a => {
         const stCls = a.status.startsWith('ERROR') ? 'act-error' : a.status === 'Done' ? 'act-done' : 'act-pending';
         const stTxt = a.status.startsWith('ERROR') ? 'ERROR' : a.status.toUpperCase();
@@ -1619,6 +1628,12 @@ async function syncBalance() {
 }
 
 const selectedRows = new Set();
+function selectAllActions(el) {
+  const rows = state.actions.filter(a => a.status !== 'Done').map(a => a.sheetRow);
+  if (el.checked) rows.forEach(r => selectedRows.add(r));
+  else selectedRows.clear();
+  renderActions();
+}
 function toggleRowSel(row, el) {
   if (el.checked) selectedRows.add(row); else selectedRows.delete(row);
   const bar = document.getElementById('exec-count');
