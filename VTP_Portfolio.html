@@ -354,6 +354,33 @@ function parseSummary(rows) {
   return { summary, fund };
 }
 
+// ── Snapshot cache ────────────────────────────────────────────────────────────
+// Persist the fully-parsed state so the app opens instantly from the last
+// snapshot. The sheet is only fetched on ↻ refresh (or a device's first open).
+const CACHE_KEY = 'vtp_cache';
+function saveCache(ts) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts, state })); }
+  catch (e) { console.warn('[VTP] cache save failed:', e.message); }
+}
+function loadFromCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return false;
+    const c = JSON.parse(raw);
+    if (!c || !c.state || !c.state.loaded) return false;
+    state = c.state;
+    const t = new Date(c.ts);
+    const sameDay = t.toDateString() === new Date().toDateString();
+    document.getElementById('last-updated').textContent =
+      'Cached · ' + (sameDay
+        ? t.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'})
+        : t.toLocaleDateString('en-IN', {day:'2-digit', month:'short'})
+          + ' ' + t.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}));
+    renderTab(currentTab);
+    return true;
+  } catch (e) { console.warn('[VTP] cache load failed:', e.message); return false; }
+}
+
 // ── Load all data ─────────────────────────────────────────────────────────────
 async function loadData() {
   setContent('<div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>');
@@ -554,8 +581,10 @@ async function loadData() {
     console.log('[VTP] closed:', state.closed.length, 'actions:', state.actions.length);
 
     state.loaded = true;
+    const nowTs = Date.now();
     document.getElementById('last-updated').textContent =
-      'Updated ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+      'Updated ' + new Date(nowTs).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    saveCache(nowTs);
     renderTab(currentTab);
 
   } catch (e) {
@@ -1769,7 +1798,9 @@ function buildCF_Interest() {
 function setContent(html) { document.getElementById('content').innerHTML = html; }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-loadData();
+// Render instantly from the last snapshot; only hit the sheet on first-ever
+// open (no cache yet). Tap ↻ for live data.
+if (!loadFromCache()) loadData();
 </script>
 </body>
 </html>
