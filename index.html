@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.07.17</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.07.25</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -1545,10 +1545,11 @@ function renderActions() {
                   <option value="S2">S2 — manual buy</option>
                 </select>
               </div>` : ''}
-            ${selectable && (a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || (a.action === 'PLACE_SELL_GTT' && a.strategy === 'S1')) ? `
+            ${selectable && (a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || a.action === 'PLACE_SELL_GTT') ? `
               <div style="margin-top:5px;display:flex;gap:6px;align-items:center;font-size:var(--fs-11);color:var(--muted)">
                 ✏ ₹<input id="px-${a.sheetRow}" type="number" inputmode="decimal" step="any" value="${a.recPrice}"
                      style="width:78px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:var(--fs-12)">
+                ${a.action === 'PLACE_SELL_GTT' && a.strategy === 'S2' ? `<span style="font-size:var(--fs-10)">(upper leg)</span>` : ''}
                 qty <input id="qty-${a.sheetRow}" type="number" inputmode="numeric" step="1" value="${a.recQty}"
                      style="width:60px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:var(--fs-12)">
               </div>` : ''}
