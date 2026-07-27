@@ -198,11 +198,11 @@
     <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="showTab('ps2')">Progress S2</div>
     <div class="tab" onclick="showTab('ps1')">Progress S1</div>
+    <div class="tab" onclick="showTab('trades')">Actions</div>
     <div class="tab" onclick="showTab('prospects')">S2 Prospects</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
     <div class="tab" onclick="showTab('closed')">Closed Positions</div>
     <div class="tab" onclick="showTab('stale')">Stale S1</div>
-    <div class="tab" onclick="showTab('trades')">Actions</div>
   </div>
   <div id="content">
     <div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>
@@ -649,7 +649,7 @@ async function loadData() {
 }
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
-const TAB_ORDER = ['dashboard','ps2','ps1','prospects','open','closed','stale','trades'];
+const TAB_ORDER = ['dashboard','ps2','ps1','trades','prospects','open','closed','stale'];
 const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function showTab(tab) {
