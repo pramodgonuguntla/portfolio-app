@@ -201,6 +201,7 @@
     <div class="tab" onclick="showTab('prospects')">S2 Prospects</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
     <div class="tab" onclick="showTab('closed')">Closed Positions</div>
+    <div class="tab" onclick="showTab('stale')">Stale S1</div>
     <div class="tab" onclick="showTab('trades')">Actions</div>
   </div>
   <div id="content">
@@ -237,7 +238,7 @@ let WA_URL   = localStorage.getItem('vtp_wa_url')   || DEFAULT_WA_URL;
 let WA_TOKEN = localStorage.getItem('vtp_wa_token') || '';
 
 // ── State ────────────────────────────────────────────────────────────────────
-let state = { repo: [], open: [], closed: [], summary: [], fundBlock: {}, progress1: [], progress2: [], s2xirr: [], actions: [], loaded: false };
+let state = { repo: [], open: [], closed: [], summary: [], fundBlock: {}, progress1: [], progress2: [], s2xirr: [], actions: [], stale: [], loaded: false };
 let currentTab = 'dashboard';
 let progressSubTab = 's1';
 let positionsCat = localStorage.getItem('vtp_pos_cat') || 'held';
@@ -412,7 +413,7 @@ async function loadData() {
   setContent('<div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>');
   document.getElementById('last-updated').textContent = 'Refreshing…';
   try {
-    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows, prospectRows] = await Promise.all([
+    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows, prospectRows, staleRows] = await Promise.all([
       fetchSheetRows('VTP_Repo'),
       fetchSheetRows('Closed Trades'),
       fetchSheet('Yearly Summary').catch(() => []),
@@ -422,6 +423,7 @@ async function loadData() {
       fetchSheet('Progress_S2').catch(() => []),
       fetchSheet('S2_XIRR').catch(() => []),
       fetchSheetRows('S2_Prospects').catch(() => []),
+      fetchSheetRows('Stale_S1').catch(() => []),
     ]);
     const prog1Rows = (prog1RawA && prog1RawA.length > 0) ? prog1RawA : prog1RawB;
 
@@ -447,6 +449,22 @@ async function loadData() {
         sellGtt:    String(disp(r[14]) || ''),
       }));
     state.open = state.repo.filter(r => HELD_STATUSES.has(r.status));
+
+    // ── Stale_S1 — Ticker | Qty | Avg Buy | Cost | Lots | Last Alerted | Days | Status
+    // Row 0 is a merged title line; header row has "Ticker" in col A.
+    state.stale = (staleRows || [])
+      .filter(r => val(r[0]) && String(val(r[0])).trim() !== '' &&
+                   String(val(r[0])).trim() !== 'Ticker' && val(r[1]) != null)
+      .map(r => ({
+        ticker:  String(val(r[0])).trim(),
+        qty:     parseAmt(val(r[1])),
+        avgBuy:  parseAmt(val(r[2])),
+        cost:    parseAmt(val(r[3])),
+        lots:    parseAmt(val(r[4])),
+        alerted: String(disp(r[5]) || '').trim(),
+        days:    parseAmt(val(r[6])),
+        status:  String(val(r[7]) || '').trim(),
+      }));
 
     // ── Closed Trades — 21 cols (positional; duplicate buy/sell headers) ──────
     state.closed = closedRows
@@ -626,7 +644,7 @@ async function loadData() {
 }
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
-const TAB_ORDER = ['dashboard','ps2','ps1','prospects','open','closed','trades'];
+const TAB_ORDER = ['dashboard','ps2','ps1','prospects','open','closed','stale','trades'];
 const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function showTab(tab) {
@@ -682,6 +700,7 @@ function renderTab(tab) {
   else if (tab === 'prospects') renderProspects();
   else if (tab === 'open')      renderPositions();
   else if (tab === 'closed')    renderClosed();
+  else if (tab === 'stale')     renderStale();
   else if (tab === 'trades')    renderActions();
 }
 
@@ -1244,6 +1263,9 @@ function renderProgressS2() {
   const emiRows = (state.s2xirr || []).filter(r => r.type === 'EMI');
   const principalPaid = emiRows.reduce((a, r) => a + (r.principal || 0), 0);
   const interestPaid  = emiRows.reduce((a, r) => a + (r.interest  || 0), 0);
+  // Portfolio value = capital currently in S2 lots + PAT booked − EMI paid out
+  const s2Invested   = Math.abs((state.fundBlock.s2||{})['Currently Invested'] || 0);
+  const s2PortValue  = s2Invested + s2Pat - emiPaid;
 
   const cfNet      = buildCF_Net();
   const cfGross    = buildCF_Gross();
@@ -1270,17 +1292,56 @@ function renderProgressS2() {
     </div>`;
   })() : '';
 
+  // ── Cumulative performance — every month up to and including the current one
+  const curDate  = cur ? parseMonYY(cur.month) : null;
+  const tillNow  = (state.progress2 || []).filter(r => {
+    const d = parseMonYY(r.month);
+    return d && curDate ? d <= curDate : false;
+  });
+  const cumHtml = tillNow.length ? (() => {
+    const last     = tillNow[tillNow.length - 1];
+    const cumT     = last.cum_target || tillNow.reduce((a, r) => a + r.target, 0);
+    const cumA     = last.cum_actual || tillNow.reduce((a, r) => a + r.actual, 0);
+    const diff     = cumA - cumT;
+    const good     = diff >= 0;
+    const pctOf    = cumT ? (cumA / cumT * 100) : 0;
+    const monthsMet = tillNow.filter(r => r.actual >= r.target && r.actual > 0).length;
+    return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="mini-label">Cumulative — till ${last.month}</div>
+        <div style="font-size:var(--fs-10);color:var(--muted)">${monthsMet}/${tillNow.length} months on target</div>
+      </div>
+      <div class="mini-value ${cls(cumA)}" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(cumA)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">Cum target</div>
+          <div class="mini-value" style="font-size:var(--fs-14)">${fmt(cumT)}</div>
+        </div>
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">${good ? 'Surplus' : 'Shortfall'}</div>
+          <div class="mini-value" style="font-size:var(--fs-14);color:${good ? 'var(--positive)' : 'var(--negative)'}">${fmt(Math.abs(diff))}</div>
+        </div>
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">Achieved</div>
+          <div class="mini-value" style="font-size:var(--fs-14);color:${good ? 'var(--positive)' : 'var(--negative)'}">${pctOf.toFixed(1)}%</div>
+        </div>
+      </div>
+      <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" style="width:${Math.min(pctOf, 100).toFixed(1)}%;background:${good ? 'var(--positive)' : 'var(--warn)'}"></div></div>
+    </div>`;
+  })() : '';
+
   setContent(`${subTabsHtml}
     <div class="loan-hero">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-size:var(--fs-10);color:var(--s2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">S2 Loan</div>
-          <div style="font-size:var(--fs-26);font-weight:700;letter-spacing:-1px;margin-top:2px">${fmt(loan)}</div>
-          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">Principal deployed · ${loanDate().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
+          <div style="font-size:var(--fs-10);color:var(--s2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">S2 Portfolio Value</div>
+          <div style="font-size:var(--fs-26);font-weight:700;letter-spacing:-1px;margin-top:2px">${fmt(s2PortValue)}</div>
+          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">invested + PAT − EMI · loan ${fmt(loan)} · ${loanDate().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:var(--fs-10);color:var(--muted)">EMI Paid</div>
-          <div style="font-size:var(--fs-18);font-weight:700;color:var(--negative);margin-top:2px">${fmt(emiPaid)}</div>
+          <div style="font-size:var(--fs-10);color:var(--muted)">Invested</div>
+          <div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(s2Invested)}</div>
         </div>
       </div>
     </div>
@@ -1312,6 +1373,7 @@ function renderProgressS2() {
     </div>
 
     <div class="sec-head" style="margin-top:4px">Monthly PAT Progress</div>
+    ${cumHtml}
     ${curHtml}
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
@@ -1617,6 +1679,100 @@ function renderClosed(selectedFY) {
       </table>
     </div>
   `);
+}
+
+// ── Stale S1 ──────────────────────────────────────────────────────────────────
+// S1 holdings that stopped appearing in the VTP screener (no alert in 365 days).
+// Exit candidates: book the loss here when S2 over-performance can absorb it.
+let staleOnly = true;
+let staleSort = { key: 'cost', dir: -1 };
+function toggleStaleOnly() { staleOnly = !staleOnly; renderStale(); }
+function setStaleSort(key) { staleSort = staleSort.key === key ? { key, dir: -staleSort.dir } : { key, dir: -1 }; renderStale(); }
+
+function renderStale() {
+  const all = state.stale || [];
+  if (all.length === 0) {
+    setContent(`
+      <div class="sec-head">Stale S1</div>
+      <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:8px">🕰</div>
+        <div>Stale_S1 sheet not found or empty.</div>
+        <div style="font-size:var(--fs-11);margin-top:8px">Run <b>VTP → 🕰 Stale S1 review</b> in the sheet to build it.</div>
+      </div>`);
+    return;
+  }
+  const isStale = r => /stale/i.test(r.status);
+  const staleRows2 = all.filter(isStale);
+  const rows = sortRows(staleOnly ? staleRows2 : all, staleSort.key, staleSort.dir, {
+    ticker: r => r.ticker,
+    days:   r => (r.days || 9e9),          // "never alerted" sorts as most stale
+  });
+  const staleCost = staleRows2.reduce((a, r) => a + r.cost, 0);
+  const allCost   = all.reduce((a, r) => a + r.cost, 0);
+
+  // S2 headroom — surplus above EMI that could absorb an exit loss
+  const s2Pat  = (state.fundBlock.s2 || {})['PAT'] || 0;
+  const emiPd  = Math.abs((state.fundBlock.s2 || {})['Cash Out'] || 0);
+  const buffer = s2Pat - emiPd;
+
+  setContent(`
+    <div class="sec-head">Stale S1
+      <span style="margin-left:auto"><span class="badge" style="cursor:pointer;font-size:var(--fs-14);line-height:1" title="Back to Dashboard" onclick="showTab('dashboard')">←</span></span></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="mini-label">Locked in stale lots</div>
+        <div style="font-size:var(--fs-10);color:var(--muted)">no VTP alert in 365 days</div>
+      </div>
+      <div class="mini-value neg" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(staleCost)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">Stale lots</div>
+          <div class="mini-value neg" style="font-size:var(--fs-14)">${staleRows2.length}<span style="color:var(--muted);font-weight:400"> / ${all.length}</span></div>
+        </div>
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">Share of S1 cost</div>
+          <div class="mini-value" style="font-size:var(--fs-14)">${allCost ? Math.round(staleCost / allCost * 100) : 0}%</div>
+        </div>
+        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
+          <div class="mini-label">S2 buffer</div>
+          <div class="mini-value ${cls(buffer)}" style="font-size:var(--fs-14)">${fmtN(buffer)}</div>
+        </div>
+      </div>
+      <div style="font-size:var(--fs-10);color:var(--muted);margin-top:8px">
+        S2 buffer = S2 PAT − EMI paid · exit a stale lot when the buffer can absorb the loss</div>
+    </div>
+    <div class="sub-tabs">
+      <div class="sub-tab ${staleOnly ? 'active' : ''}" onclick="toggleStaleOnly()">Stale only <span style="opacity:0.6">${staleRows2.length}</span></div>
+      <div class="sub-tab ${staleOnly ? '' : 'active'}" onclick="toggleStaleOnly()">All held <span style="opacity:0.6">${all.length}</span></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="scroll-tbl">
+      <table class="tbl">
+        <thead><tr>
+          ${th('Scrip','ticker',staleSort,'setStaleSort')}
+          ${th('Cost','cost',staleSort,'setStaleSort')}
+          ${th('Last alert','days',staleSort,'setStaleSort','right')}
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const st = isStale(r);
+            return `
+            <tr style="${st ? 'background:rgba(239,68,68,0.06)' : ''}">
+              <td>
+                <div style="font-weight:600">${r.ticker}</div>
+                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">${r.qty} × ₹${r.avgBuy.toLocaleString('en-IN',{maximumFractionDigits:1})} · ${r.lots} lot${r.lots === 1 ? '' : 's'}</div>
+              </td>
+              <td style="font-weight:600">${fmt(r.cost)}</td>
+              <td style="text-align:right">
+                <div style="font-size:var(--fs-11);font-weight:700;color:${st ? 'var(--negative)' : 'var(--positive)'}">${st ? 'STALE' : 'active'}</div>
+                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">${r.days ? r.days + 'd' : 'never'}</div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      </div>
+    </div>`);
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
