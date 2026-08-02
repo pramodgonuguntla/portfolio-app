@@ -1629,6 +1629,22 @@ async function refreshStaleCmp() {
     renderStale();
   }
 }
+// Full rebuild — re-scans a year of screener mail, so it takes a while
+async function rerunStale() {
+  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (!confirm('Re-run the full Stale S1 analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.')) return;
+  const b = document.getElementById('stale-rerun');
+  if (b) b.textContent = '⏳';
+  try {
+    const j = await waPost({ fn: 'stale_full' });
+    if (j.stale && j.stale.length) state.stale = j.stale;
+    renderStale();
+    alert('Stale S1 rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
+  } catch (e) {
+    alert('Rebuild failed: ' + e.message);
+    renderStale();
+  }
+}
 function setStaleSort(key) { staleSort = staleSort.key === key ? { key, dir: -staleSort.dir } : { key, dir: -1 }; renderStale(); }
 
 function renderStale() {
@@ -1662,7 +1678,9 @@ function renderStale() {
   setContent(`
     <div class="sec-head">Stale S1
       <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        ${!localWB ? `<span id="stale-refresh" class="badge" style="cursor:pointer;color:var(--accent2);font-size:var(--fs-14);line-height:1" title="Refresh CMP" onclick="refreshStaleCmp()">↻</span>` : ''}
+        ${!localWB ? `
+        <span id="stale-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" title="Refresh CMP only" onclick="refreshStaleCmp()">↻ CMP</span>
+        <span id="stale-rerun" class="badge" style="cursor:pointer;color:var(--accent)" title="Re-run full stale analysis" onclick="rerunStale()">🕰 re-run</span>` : ''}
         <span class="badge" style="cursor:pointer;font-size:var(--fs-14);line-height:1" title="Back to Dashboard" onclick="showTab('dashboard')">←</span>
       </span></div>
     <div class="card">
