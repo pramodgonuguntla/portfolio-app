@@ -413,7 +413,7 @@ async function loadData() {
   setContent('<div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>');
   document.getElementById('last-updated').textContent = 'Refreshing…';
   try {
-    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows, prospectRows, staleRows] = await Promise.all([
+    const [repoRows, closedRows, summaryRows, prog1RawA, prog1RawB, actionRows, prog2Rows, s2xirrRows, prospectRows, staleRawA, staleRawB] = await Promise.all([
       fetchSheetRows('VTP_Repo'),
       fetchSheetRows('Closed Trades'),
       fetchSheet('Yearly Summary').catch(() => []),
@@ -424,6 +424,7 @@ async function loadData() {
       fetchSheet('S2_XIRR').catch(() => []),
       fetchSheetRows('S2_Prospects').catch(() => []),
       fetchSheetRows('Stale').catch(() => []),
+      fetchSheetRows('Stale_S1').catch(() => []),
     ]);
     const prog1Rows = (prog1RawA && prog1RawA.length > 0) ? prog1RawA : prog1RawB;
 
@@ -453,6 +454,11 @@ async function loadData() {
     // ── Stale — A–N: Ticker | Strat | Qty | Avg Buy | Cost | CMP | Curr Value |
     //    P&L | P&L % | Lots | Days Held | Last Alerted | Days Since Alert | Status
     // Row 0 is a merged title line; header row has "Ticker" in col A.
+    // gviz silently serves the FIRST sheet when a tab name doesn't exist, so
+    // validate the header before trusting the rows (and fall back to the old name).
+    const staleValid = rs => (rs || []).slice(0, 4).some(r =>
+      String(val(r[0]) || '').trim() === 'Ticker' && /^strat/i.test(String(val(r[1]) || '').trim()));
+    const staleRows = staleValid(staleRawA) ? staleRawA : staleValid(staleRawB) ? staleRawB : [];
     state.stale = (staleRows || [])
       .filter(r => val(r[0]) && String(val(r[0])).trim() !== '' &&
                    String(val(r[0])).trim() !== 'Ticker' && val(r[2]) != null)
