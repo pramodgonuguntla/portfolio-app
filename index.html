@@ -202,7 +202,7 @@
     <div class="tab" onclick="showTab('prospects')">S2 Prospects</div>
     <div class="tab" onclick="showTab('open')">Open Positions</div>
     <div class="tab" onclick="showTab('closed')">Closed Positions</div>
-    <div class="tab" onclick="showTab('stale')">Stale S1</div>
+    <div class="tab" onclick="showTab('stale')">Stale</div>
   </div>
   <div id="content">
     <div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>
@@ -423,7 +423,7 @@ async function loadData() {
       fetchSheet('Progress_S2').catch(() => []),
       fetchSheet('S2_XIRR').catch(() => []),
       fetchSheetRows('S2_Prospects').catch(() => []),
-      fetchSheetRows('Stale_S1').catch(() => []),
+      fetchSheetRows('Stale').catch(() => []),
     ]);
     const prog1Rows = (prog1RawA && prog1RawA.length > 0) ? prog1RawA : prog1RawB;
 
@@ -450,25 +450,27 @@ async function loadData() {
       }));
     state.open = state.repo.filter(r => HELD_STATUSES.has(r.status));
 
-    // ── Stale_S1 — A–L: Ticker | Qty | Avg Buy | Cost | CMP | Curr Value | P&L |
-    //    P&L % | Lots | Last Alerted | Days Since | Status
+    // ── Stale — A–N: Ticker | Strat | Qty | Avg Buy | Cost | CMP | Curr Value |
+    //    P&L | P&L % | Lots | Days Held | Last Alerted | Days Since Alert | Status
     // Row 0 is a merged title line; header row has "Ticker" in col A.
     state.stale = (staleRows || [])
       .filter(r => val(r[0]) && String(val(r[0])).trim() !== '' &&
-                   String(val(r[0])).trim() !== 'Ticker' && val(r[1]) != null)
+                   String(val(r[0])).trim() !== 'Ticker' && val(r[2]) != null)
       .map(r => ({
-        ticker:  String(val(r[0])).trim(),
-        qty:     parseAmt(val(r[1])),
-        avgBuy:  parseAmt(val(r[2])),
-        cost:    parseAmt(val(r[3])),
-        cmp:     parseAmt(val(r[4])),
-        curVal:  parseAmt(val(r[5])),
-        pnl:     parseAmt(val(r[6])),
-        pnlPct:  parseAmt(val(r[7])),
-        lots:    parseAmt(val(r[8])),
-        alerted: String(disp(r[9]) || '').trim(),
-        days:    parseAmt(val(r[10])),
-        status:  String(val(r[11]) || '').trim(),
+        ticker:   String(val(r[0])).trim(),
+        strategy: String(val(r[1]) || '').trim(),
+        qty:      parseAmt(val(r[2])),
+        avgBuy:   parseAmt(val(r[3])),
+        cost:     parseAmt(val(r[4])),
+        cmp:      parseAmt(val(r[5])),
+        curVal:   parseAmt(val(r[6])),
+        pnl:      parseAmt(val(r[7])),
+        pnlPct:   parseAmt(val(r[8])),
+        lots:     parseAmt(val(r[9])),
+        daysHeld: parseAmt(val(r[10])),
+        alerted:  String(disp(r[11]) || '').trim(),
+        days:     parseAmt(val(r[12])),
+        status:   String(val(r[13]) || '').trim(),
       }));
 
     // ── Closed Trades — 21 cols (positional; duplicate buy/sell headers) ──────
@@ -1610,9 +1612,16 @@ function renderClosed(selectedFY) {
   `);
 }
 
-// ── Stale S1 ──────────────────────────────────────────────────────────────────
-// S1 holdings that stopped appearing in the VTP screener (no alert in 365 days).
-// Exit candidates: book the loss here when S2 over-performance can absorb it.
+// ── Stale ─────────────────────────────────────────────────────────────────────
+// Exit candidates: S1 lots that stopped appearing in the VTP screener (no alert
+// in 365d) and S2 lots held past their intended horizon (>30d). Book the loss
+// here when S2 over-performance can absorb it.
+let staleStratSet = new Set();
+function toggleStaleStrat(s) {
+  if (s === 'all') staleStratSet.clear();
+  else staleStratSet.has(s) ? staleStratSet.delete(s) : staleStratSet.add(s);
+  renderStale();
+}
 let staleOnly = true;
 let staleSort = { key: 'pnl', dir: 1 };
 function toggleStaleOnly() { staleOnly = !staleOnly; renderStale(); }
@@ -1632,14 +1641,14 @@ async function refreshStaleCmp() {
 // Full rebuild — re-scans a year of screener mail, so it takes a while
 async function rerunStale() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Re-run the full Stale S1 analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.')) return;
+  if (!confirm('Re-run the full Stale analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.')) return;
   const b = document.getElementById('stale-rerun');
   if (b) b.textContent = '⏳';
   try {
     const j = await waPost({ fn: 'stale_full' });
     if (j.stale && j.stale.length) state.stale = j.stale;
     renderStale();
-    alert('Stale S1 rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
+    alert('Stale rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
   } catch (e) {
     alert('Rebuild failed: ' + e.message);
     renderStale();
@@ -1651,17 +1660,19 @@ function renderStale() {
   const all = state.stale || [];
   if (all.length === 0) {
     setContent(`
-      <div class="sec-head">Stale S1</div>
+      <div class="sec-head">Stale</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
         <div style="font-size:32px;margin-bottom:8px">🕰</div>
-        <div>Stale_S1 sheet not found or empty.</div>
-        <div style="font-size:var(--fs-11);margin-top:8px">Run <b>VTP → 🕰 Stale S1 review</b> in the sheet to build it.</div>
+        <div>Stale sheet not found or empty.</div>
+        <div style="font-size:var(--fs-11);margin-top:8px">Tap 🕰 re-run, or use <b>VTP → 🕰 Stale review</b> in the sheet.</div>
       </div>`);
     return;
   }
   const isStale = r => /stale/i.test(r.status);
-  const staleRows2 = all.filter(isStale);
-  const rows = sortRows(staleOnly ? staleRows2 : all, staleSort.key, staleSort.dir, {
+  const inStrat = r => stratMatch(staleStratSet, r);
+  const staleRows2 = all.filter(r => isStale(r) && inStrat(r));
+  const base = (staleOnly ? all.filter(isStale) : all).filter(inStrat);
+  const rows = sortRows(base, staleSort.key, staleSort.dir, {
     ticker: r => r.ticker,
     days:   r => (r.days || 9e9),          // "never alerted" sorts as most stale
   });
@@ -1676,7 +1687,7 @@ function renderStale() {
   const buffer = s2Pat - emiPd;
 
   setContent(`
-    <div class="sec-head">Stale S1
+    <div class="sec-head">Stale
       <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
         ${!localWB ? `
         <span id="stale-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" title="Refresh CMP only" onclick="refreshStaleCmp()">↻ CMP</span>
@@ -1686,7 +1697,7 @@ function renderStale() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
         <div class="mini-label">Stale lots — current value</div>
-        <div style="font-size:var(--fs-10);color:var(--muted)">${staleRows2.length} of ${all.length} · no alert in 365d</div>
+        <div style="font-size:var(--fs-10);color:var(--muted)">${staleRows2.length} of ${all.length} held</div>
       </div>
       <div class="mini-value" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(staleVal)}</div>
       <div class="grid-3" style="margin-bottom:0">
@@ -1706,12 +1717,13 @@ function renderStale() {
         </div>
       </div>
       <div style="font-size:var(--fs-10);color:var(--muted);margin-top:8px">
-        S2 buffer = S2 PAT − EMI paid · exit a stale lot when the buffer can absorb the loss</div>
+        S1 stale = no VTP alert in 365d · S2 stale = held &gt; 30d · S2 buffer = S2 PAT − EMI paid</div>
     </div>
     <div class="sub-tabs">
-      <div class="sub-tab ${staleOnly ? 'active' : ''}" onclick="toggleStaleOnly()">Stale only <span style="opacity:0.6">${staleRows2.length}</span></div>
+      <div class="sub-tab ${staleOnly ? 'active' : ''}" onclick="toggleStaleOnly()">Stale only <span style="opacity:0.6">${all.filter(isStale).length}</span></div>
       <div class="sub-tab ${staleOnly ? '' : 'active'}" onclick="toggleStaleOnly()">All held <span style="opacity:0.6">${all.length}</span></div>
     </div>
+    ${stratChips(staleStratSet, 'toggleStaleStrat', staleOnly ? all.filter(isStale) : all)}
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
       <table class="tbl">
@@ -1726,8 +1738,8 @@ function renderStale() {
             return `
             <tr style="${st ? 'background:rgba(239,68,68,0.06)' : ''}">
               <td>
-                <div style="font-weight:600">${r.ticker} <span style="font-size:var(--fs-10);font-weight:700;color:${st ? 'var(--negative)' : 'var(--positive)'}">${st ? 'STALE' : 'active'}</span></div>
-                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">${r.qty} × ₹${r.avgBuy.toLocaleString('en-IN',{maximumFractionDigits:1})} → ₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})} · ${r.days ? r.days + 'd' : 'never'}</div>
+                <div style="font-weight:600">${r.ticker} ${pill(r.strategy)} <span style="font-size:var(--fs-10);font-weight:700;color:${st ? 'var(--negative)' : 'var(--positive)'}">${st ? 'STALE' : 'active'}</span></div>
+                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">${r.qty} × ₹${r.avgBuy.toLocaleString('en-IN',{maximumFractionDigits:1})} → ₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})} · held ${r.daysHeld ? r.daysHeld + 'd' : '—'}${r.strategy === 'S1' ? ' · alert ' + (r.days ? r.days + 'd' : 'never') : ''}</div>
               </td>
               <td>
                 <div style="font-weight:600">${fmt(r.curVal)}</div>
