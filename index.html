@@ -1432,8 +1432,35 @@ async function refreshProspects() {
     renderProspects();
   }
 }
-const prosRefreshBtn = () => localWB ? '' :
-  `<span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>`;
+// Propose S2 buys (fn: 's2_buys') — GAS sizes lots from available cash and
+// appends buy-GTT rows to Actions for review. Nothing is sent to Kite here;
+// PG ticks and executes them on the Actions tab.
+// Response: { ok, added, funds, lots, actions }
+async function proposeS2Buys() {
+  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (!confirm('Propose S2 buys from available cash?\n\nAdds buy-GTT rows to Actions — nothing is placed until you execute them there.')) return;
+  const b = document.getElementById('pros-gtt');
+  if (b) b.textContent = '⏳';
+  try {
+    const j = await waPost({ fn: 's2_buys' });
+    if (j.actions) state.actions = j.actions;
+    if (j.added) {
+      alert('💰 ' + j.added + ' S2 buy proposal(s) added to Actions\n\ncash ₹' +
+            Math.round(j.funds || 0).toLocaleString('en-IN') + ' → ' + (j.lots || 0) + ' lots');
+      showTab('trades');
+    } else {
+      alert('No S2 buys proposed — not enough free cash for a lot.');
+      renderProspects();
+    }
+  } catch (e) {
+    alert('Propose S2 buys failed: ' + e.message);
+    renderProspects();
+  }
+}
+
+const prosRefreshBtn = () => localWB ? '' : `
+  <span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>
+  <span id="pros-gtt" class="badge" style="cursor:pointer;color:var(--accent)" title="Propose S2 buys into Actions" onclick="proposeS2Buys()">💰 propose buys</span>`;
 
 // Inline "buy in Kite" flow removed 2026-08-02 — orders are placed in Kite directly.
 
