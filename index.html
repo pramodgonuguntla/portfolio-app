@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.07.25b</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.06a</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -1458,9 +1458,32 @@ async function proposeS2Buys() {
   }
 }
 
+// Cancel open (unfilled) S2 buy GTTs (fn: 'cancel_s2_buys'). Two-step for safety:
+// preview lists the matching GTTs, then a confirm cancels them directly on Kite.
+// Response: { ok, found, cancelled, targets:[{id,ticker,qty,trigger,value}] }
+async function cancelS2Buys() {
+  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  const b = document.getElementById('pros-cancel');
+  if (b) b.textContent = '⏳';
+  try {
+    const p = await waPost({ fn: 'cancel_s2_buys', preview: true });
+    const t = p.targets || [];
+    if (t.length === 0) { alert('No open S2 buy GTTs to cancel.'); return; }
+    const lines = t.map(g => '• ' + g.ticker + '  qty ' + g.qty + '  trg ₹' + g.trigger + '  ~₹' + (g.value || 0).toLocaleString('en-IN')).join('\n');
+    if (!confirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.')) return;
+    const j = await waPost({ fn: 'cancel_s2_buys' });
+    alert('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
+  } catch (e) {
+    alert('Cancel S2 buys failed: ' + e.message);
+  } finally {
+    if (b) b.textContent = '🚫 cancel buys';
+  }
+}
+
 const prosRefreshBtn = () => localWB ? '' : `
   <span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>
-  <span id="pros-gtt" class="badge" style="cursor:pointer;color:var(--accent)" title="Propose S2 buys into Actions" onclick="proposeS2Buys()">💰 propose buys</span>`;
+  <span id="pros-gtt" class="badge" style="cursor:pointer;color:var(--accent)" title="Propose S2 buys into Actions" onclick="proposeS2Buys()">💰 propose buys</span>
+  <span id="pros-cancel" class="badge" style="cursor:pointer;color:var(--danger,#ef4444)" title="Cancel open S2 buy GTTs" onclick="cancelS2Buys()">🚫 cancel buys</span>`;
 
 // Inline "buy in Kite" flow removed 2026-08-02 — orders are placed in Kite directly.
 
