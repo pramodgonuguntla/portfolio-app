@@ -1472,6 +1472,18 @@ async function cancelS2Buys() {
     const lines = t.map(g => '• ' + g.ticker + '  qty ' + g.qty + '  trg ₹' + g.trigger + '  ~₹' + (g.value || 0).toLocaleString('en-IN')).join('\n');
     if (!confirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.')) return;
     const j = await waPost({ fn: 'cancel_s2_buys' });
+    // Cancelling can retire pending rows — resync so Actions row numbers stay valid
+    try {
+      const a = await waGet({ fn: 'actions' });
+      if (a.actions) {
+        state.actions = a.actions.map(x => ({
+          sheetRow: x.row, action: x.action, symbol: x.symbol, strategy: x.strategy,
+          details: x.details, recPrice: x.recPrice != null ? x.recPrice : '',
+          recQty: x.recQty != null ? x.recQty : '', status: x.status || 'Pending',
+        }));
+        selectedRows.clear();
+      }
+    } catch (e) { /* non-fatal — execute remaps rows anyway */ }
     alert('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
   } catch (e) {
     alert('Cancel S2 buys failed: ' + e.message);
@@ -1930,11 +1942,58 @@ function toggleRowSel(row, el) {
   if (btn) btn.disabled = selectedRows.size === 0;
 }
 
+// Re-fetch Actions and translate the selected sheet rows to their current
+// positions by identity. Returns null (and refreshes state) if a selected
+// action no longer exists — better to re-tick than to execute a wrong row.
+async function remapActionRows(rows, verify, classify, overrides) {
+  let fresh;
+  try {
+    const j = await waGet({ fn: 'actions' });
+    fresh = (j.actions || []).map(a => ({
+      sheetRow: a.row, action: a.action, symbol: a.symbol, strategy: a.strategy,
+      details: a.details, recPrice: a.recPrice != null ? a.recPrice : '',
+      recQty: a.recQty != null ? a.recQty : '', status: a.status || 'Pending',
+    }));
+  } catch (e) {
+    return { rows, verify, classify, overrides };   // can't verify — send as-is
+  }
+  const used = new Set();
+  const pick = (action, symbol, oldRow) => {
+    const cands = fresh.filter(f => f.action === action && f.symbol === symbol &&
+                                    f.status !== 'Done' && !used.has(f.sheetRow));
+    const hit = cands.find(f => f.sheetRow === oldRow) || cands[0];
+    if (hit) used.add(hit.sheetRow);
+    return hit;
+  };
+  const out = { rows: [], verify: {}, classify: {}, overrides: {} };
+  const lost = [];
+  let moved = 0;
+  for (const oldRow of rows) {
+    const v = verify[oldRow] || {};
+    const hit = pick(v.action, v.symbol, oldRow);
+    if (!hit) { lost.push(v.symbol + ' ' + v.action); continue; }
+    if (hit.sheetRow !== oldRow) moved++;
+    out.rows.push(hit.sheetRow);
+    out.verify[hit.sheetRow] = { action: v.action, symbol: v.symbol };
+    if (classify[oldRow]  != null) out.classify[hit.sheetRow]  = classify[oldRow];
+    if (overrides[oldRow] != null) out.overrides[hit.sheetRow] = overrides[oldRow];
+  }
+  if (lost.length) {
+    state.actions = fresh;
+    selectedRows.clear();
+    alert('⚠️ The Actions sheet changed — these are no longer pending:\n\n' +
+          lost.join('\n') + '\n\nThe list has been refreshed; re-tick and execute.');
+    return null;
+  }
+  if (moved) state.actions = fresh;
+  return out;
+}
+
 async function executeSelected() {
   if (localWB) { alert('Local file mode — execution needs the live sheet (☁).'); return; }
   if (selectedRows.size === 0) return;
-  const rows = [...selectedRows];
-  const verify = {}, classify = {}, overrides = {};
+  let rows = [...selectedRows];
+  let verify = {}, classify = {}, overrides = {};
   const ovNotes = [];
   for (const a of state.actions) {
     if (!selectedRows.has(a.sheetRow)) continue;
@@ -1964,6 +2023,13 @@ async function executeSelected() {
   const btn = document.getElementById('exec-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Executing…'; }
   try {
+    // Row numbers go stale whenever the Actions sheet is rewritten (a VTP run,
+    // Propose S2 Buys, another device). Re-read the sheet and remap each
+    // selection by identity (action+symbol) before sending, so a stale snapshot
+    // can't fire the wrong row — or error out mid-batch.
+    const remap = await remapActionRows(rows, verify, classify, overrides);
+    if (!remap) { renderActions(); return; }
+    ({ rows, verify, classify, overrides } = remap);
     const j = await waPost({ fn: 'execute', rows, verify, classify, overrides });
     selectedRows.clear();
     showLogs(j.logs, (j.errors ? '⚠️ ' : '✅ ') + j.executed + ' executed, ' + j.errors + ' error(s)');
