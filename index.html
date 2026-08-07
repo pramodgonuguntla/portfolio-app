@@ -1502,10 +1502,8 @@ function renderProspects() {
   // Held stocks sink to the bottom regardless of column sort
   const base   = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
   const sorted = [...base.filter(r => !r.held), ...base.filter(r => r.held)];
-  const inBand = rows.filter(r => r.away >= 9 && r.away <= 13).length;
   setContent(`
-    <div class="sec-head">S2 Prospects <span class="badge">${rows.length} prospects · ${inBand} in 9–13% band</span>
-      <span class="badge">as of ${rows[0].updated || '—'}</span>
+    <div class="sec-head">S2 Prospects
       ${prosRefreshBtn()}</div>
     <div class="card" style="padding:10px 14px;margin-bottom:12px;font-size:var(--fs-11);color:var(--muted)">
       Watchlist (gtt_placed) stocks whose CMP is 9–13% above the S1 buy trigger — far enough not to
