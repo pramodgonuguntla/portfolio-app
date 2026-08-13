@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.06b</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.13</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -1246,7 +1246,10 @@ async function submitEmi() {
     alert('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
     emiFormOpen = false;
     await loadData(); showTab('ps2');
-  } catch (e) { alert('Failed: ' + e.message); }
+  } catch (e) {
+    alert('Failed: ' + e.message + '\n\nRefreshing — check Progress S2 for whether it went through.');
+    await loadData().catch(() => {});
+  }
 }
 function emiFormHtml() {
   if (localWB) return '';
@@ -1411,7 +1414,10 @@ async function syncProgress() {
     if (j.projShift) extra.push('📅 Projection shifted +' + j.projShift + ' month(s) → opens at ' + j.projFirst + ' (ahead of schedule)');
     alert(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
     await loadData(); showTab('ps1');
-  } catch (e) { alert('Sync failed: ' + e.message); }
+  } catch (e) {
+    alert('Sync failed: ' + e.message + '\n\nRefreshing — check Progress S1 for whether it went through.');
+    await loadData().catch(() => {});
+  }
 }
 
 // ── S2 Prospects ──────────────────────────────────────────────────────────────
@@ -1453,7 +1459,8 @@ async function proposeS2Buys() {
       renderProspects();
     }
   } catch (e) {
-    alert('Propose S2 buys failed: ' + e.message);
+    alert('Propose S2 buys failed: ' + e.message + '\n\nRefreshing — check Actions for whether it went through.');
+    await loadData().catch(() => {});
     renderProspects();
   }
 }
@@ -1471,20 +1478,28 @@ async function cancelS2Buys() {
     if (t.length === 0) { alert('No open S2 buy GTTs to cancel.'); return; }
     const lines = t.map(g => '• ' + g.ticker + '  qty ' + g.qty + '  trg ₹' + g.trigger + '  ~₹' + (g.value || 0).toLocaleString('en-IN')).join('\n');
     if (!confirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.')) return;
-    const j = await waPost({ fn: 'cancel_s2_buys' });
-    // Cancelling can retire pending rows — resync so Actions row numbers stay valid
     try {
-      const a = await waGet({ fn: 'actions' });
-      if (a.actions) {
-        state.actions = a.actions.map(x => ({
-          sheetRow: x.row, action: x.action, symbol: x.symbol, strategy: x.strategy,
-          details: x.details, recPrice: x.recPrice != null ? x.recPrice : '',
-          recQty: x.recQty != null ? x.recQty : '', status: x.status || 'Pending',
-        }));
-        selectedRows.clear();
-      }
-    } catch (e) { /* non-fatal — execute remaps rows anyway */ }
-    alert('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
+      const j = await waPost({ fn: 'cancel_s2_buys' });
+      // Cancelling can retire pending rows — resync so Actions row numbers stay valid
+      try {
+        const a = await waGet({ fn: 'actions' });
+        if (a.actions) {
+          state.actions = a.actions.map(x => ({
+            sheetRow: x.row, action: x.action, symbol: x.symbol, strategy: x.strategy,
+            details: x.details, recPrice: x.recPrice != null ? x.recPrice : '',
+            recQty: x.recQty != null ? x.recQty : '', status: x.status || 'Pending',
+          }));
+          selectedRows.clear();
+        }
+      } catch (e) { /* non-fatal — execute remaps rows anyway */ }
+      alert('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
+    } catch (e) {
+      // The cancel loop over several Kite calls can outlast the phone's
+      // connection even after Kite already cancelled the GTTs — resync from
+      // the sheet instead of assuming nothing happened.
+      await loadData().catch(() => {});
+      alert('Cancel request didn\'t confirm cleanly: ' + e.message + '\n\nRefreshed — check S2 Prospects/Actions for the real state before retrying.');
+    }
   } catch (e) {
     alert('Cancel S2 buys failed: ' + e.message);
   } finally {
@@ -1695,7 +1710,7 @@ async function refreshStaleCmp() {
     renderStale();
   } catch (e) {
     alert('CMP refresh failed: ' + e.message);
-    renderStale();
+    await loadData().catch(() => {});
   }
 }
 // Full rebuild — re-scans a year of screener mail, so it takes a while
@@ -1710,7 +1725,8 @@ async function rerunStale() {
     renderStale();
     alert('Stale rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
   } catch (e) {
-    alert('Rebuild failed: ' + e.message);
+    alert('Rebuild failed: ' + e.message + '\n\nRefreshing — the rebuild may have completed server-side even though the reply failed.');
+    await loadData().catch(() => {});
     renderStale();
   }
 }
@@ -1830,6 +1846,20 @@ function saveSettings() {
 }
 
 // ── Web App bridge — Run VTP + execute actions from the phone ─────────────────
+// Parses a fetch Response as JSON without throwing Safari's opaque
+// "The string did not match the expected pattern." on a truncated/bad body
+// (slow GAS loop + a flaky mobile connection can cut the response short even
+// though the server-side work — Kite orders, sheet writes — already happened).
+async function waParseJson_(res) {
+  const txt = await res.text();
+  try {
+    return JSON.parse(txt);
+  } catch (e) {
+    throw new Error('Bad response from web app (HTTP ' + res.status + ') — the request may still have completed server-side; refresh to check. ' +
+      (txt ? txt.slice(0, 140) : '(empty body)'));
+  }
+}
+
 async function waPost(payload) {
   if (!WA_URL) throw new Error('Web App URL not set — tap ⚙ and add URL + token');
   payload.token = WA_TOKEN;
@@ -1838,7 +1868,7 @@ async function waPost(payload) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // avoids CORS preflight
     body: JSON.stringify(payload),
   });
-  const j = await res.json();
+  const j = await waParseJson_(res);
   if (!j.ok) throw new Error(j.error || 'web app error');
   return j;
 }
@@ -1847,7 +1877,7 @@ async function waGet(params) {
   if (!WA_URL) throw new Error('Web App URL not set — tap ⚙ and add URL + token');
   const qs = new URLSearchParams({ ...params, token: WA_TOKEN }).toString();
   const res = await fetch(WA_URL + '?' + qs);
-  const j = await res.json();
+  const j = await waParseJson_(res);
   if (!j.ok) throw new Error(j.error || 'web app error');
   return j;
 }
@@ -1896,7 +1926,8 @@ async function runVtp() {
     await loadData();
     showTab('trades');
   } catch (e) {
-    alert('Run failed: ' + e.message);
+    alert('Run failed: ' + e.message + '\n\nRefreshing — the check may have completed server-side even though the reply failed.');
+    await loadData().catch(() => {});
   } finally {
     btn.disabled = false; btn.textContent = '▶';
   }
@@ -1923,7 +1954,8 @@ async function syncBalance() {
     alert('Sheet updated: ' + j.cell + ' = ₹' + Math.round(j.balance).toLocaleString('en-IN'));
     await loadData();
   } catch (e) {
-    alert('Sync failed: ' + e.message);
+    alert('Sync failed: ' + e.message + '\n\nRefreshing — check Yearly Summary for whether it went through.');
+    await loadData().catch(() => {});
   }
 }
 
@@ -2035,8 +2067,11 @@ async function executeSelected() {
     showLogs(j.logs, (j.errors ? '⚠️ ' : '✅ ') + j.executed + ' executed, ' + j.errors + ' error(s)');
     await loadData();
   } catch (e) {
-    alert('Execute failed: ' + e.message);
-    renderActions();
+    // Orders can go through on Kite/GAS even if the reply back to the phone
+    // fails to parse — resync from the sheet rather than leaving stale rows
+    // that could be re-executed by mistake.
+    alert('Execute failed: ' + e.message + '\n\nRefreshing — check Actions/Open Positions for what actually went through before retrying.');
+    await loadData().catch(() => { renderActions(); });
   }
 }
 
