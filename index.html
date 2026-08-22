@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.22</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.22b</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -600,22 +600,29 @@ async function loadData() {
     });
 
     // ── S2_XIRR ───────────────────────────────────────────────────────────────
-    state.s2xirr = (s2xirrRows || []).filter(r => {
+    // Section A's "Loan" row and Section C's EMI rows reuse the same physical
+    // columns for different fields (col C = Type in Section A, but = Principal
+    // in Section C; col D = Note vs Interest). gviz infers ONE type per column
+    // across the whole sheet — since 24 EMI rows dominate col C with numbers,
+    // it silently nulls out the one text "Loan" entered there (confirmed via
+    // both gviz JSON and raw CSV — this isn't a caching/parsing bug, the value
+    // genuinely never reaches the client). So Type can't be read for that row;
+    // instead it's identified positionally — Section A's Loan row is always
+    // s2xirrRows[0] (checked 2026-08-22) — and EMI rows keep using col E.
+    state.s2xirr = (s2xirrRows || []).map((r, i) => {
       const keys = Object.keys(r);
-      const t = [r['Type'], r[keys[4]], r[keys[2]]].find(v => v === 'Loan' || v === 'EMI');
-      return !!t;
-    }).map(r => {
-      const keys = Object.keys(r);
-      const type = [r['Type'], r[keys[4]], r[keys[2]]].find(v => v === 'Loan' || v === 'EMI');
+      const isEMIRow = r[keys[4]] === 'EMI';
+      const amt = parseAmt(r['Total EMI'] || r['Amount'] || r[keys[1]]);
+      const type = isEMIRow ? 'EMI' : (i === 0 && amt !== 0 ? 'Loan' : null);
       const isEMI = type === 'EMI';
       return {
         date:      r['Date'] || r[keys[0]],
-        amount:    parseAmt(r['Total EMI'] || r['Amount'] || r[keys[1]]),
+        amount:    amt,
         principal: isEMI ? (parseAmt(r['Principal'] || r[keys[2]]) || null) : null,
         interest:  isEMI ? (parseAmt(r['Interest']  || r[keys[3]]) || null) : null,
         type,
       };
-    }).filter(r => r.amount !== 0);
+    }).filter(r => r.type && r.amount !== 0);
 
     // ── PAT + EMI Paid — computed directly from source sheets, not Yearly Summary ──
     // 2026-08-22: Yearly Summary's bottom-block 'PAT' row was removed in PG's
@@ -2159,7 +2166,11 @@ function loanAmount() {
   for (const r of state.s2xirr) {
     if ((r.type||'').toLowerCase() === 'loan') return Math.abs(r.amount);
   }
-  return 713000;
+  // No hardcoded fallback — 2026-08-22 per PG, this must read from S2_XIRR's
+  // Section A "Loan" row only. If that row is empty (as it currently is —
+  // checked via gviz JSON + raw CSV), this returns 0 so it's obviously wrong
+  // on screen rather than silently showing a stale guessed number.
+  return 0;
 }
 function buildCF_Net() {
   const today = new Date(); today.setHours(0,0,0,0);
