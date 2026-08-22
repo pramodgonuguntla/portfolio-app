@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.13</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.22</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -339,8 +339,15 @@ async function fetchSheetRows(sheetName) {
 function parseSummary(rows) {
   const summary = [];
   const fund    = { byStrategy: {}, s2: {}, s1: {}, s0: {} };
-  const FUND_LABELS = ['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Currently Invested',
-       'Tax Pending','Tax Provision','Ideal Fund Balance','Actual Balance','Actual Fund Balance',
+  // 2026-08-22: Yearly Summary restructure — bottom block's per-strategy columns
+  // are now C=S0, D=S1, E=S2 (was C=S2, D=S1, E=S0 — D/S1 unchanged, C/E swapped).
+  // Several labels were also renamed: Currently Invested→Invested,
+  // Ideal Fund Balance→Ideal Funds, Actual Fund Balance→Actual Funds,
+  // Funds Input row removed (replaced by Total Funds). Old strings kept below
+  // too so a reverted/older sheet snapshot doesn't silently stop matching.
+  const FUND_LABELS = ['S1 PAT','S2 PAT','S0 PAT','H0 PAT','Funds Input','Total Funds','Invested',
+       'Currently Invested','Tax Pending','Tax Provision','Ideal Funds','Ideal Fund Balance',
+       'Actual Funds','Actual Balance','Actual Fund Balance',
        'Cash Out','Booked Funds','Floating Funds','Charges Till Date','PAT'];
   for (const row of rows) {
     const keys = Object.keys(row);
@@ -363,21 +370,23 @@ function parseSummary(rows) {
     const isBlankA = colA == null || String(colA).trim() === '';
     const label = String(isBlankA ? (colB || '') : '').trim();
     if (label && FUND_LABELS.some(k => label.includes(k))) {
-      const colD   = row['Buy Value']   != null ? row['Buy Value']   : row[keys[3]];   // S1 column
-      const colE   = row['Buy Charges'] != null ? row['Buy Charges'] : row[keys[4]];   // S0 column
-      const s2val  = parseFloat(colC) || 0;
-      const totval = parseFloat(colF) || s2val;
-      fund.s2[label]           = s2val;
+      const colD   = row['Buy Value']   != null ? row['Buy Value']   : row[keys[3]];   // S1 column (unchanged)
+      const colE   = row['Buy Charges'] != null ? row['Buy Charges'] : row[keys[4]];   // S2 column (was S0)
+      const s0val  = parseFloat(colC) || 0;   // col C — was S2, now S0
+      const s2val  = parseFloat(colE) || 0;   // col E — was S0, now S2
+      const totval = parseFloat(colF) || s0val || s2val;
+      fund.s0[label]           = s0val;
       fund.s1[label]           = parseFloat(colD) || 0;
-      fund.s0[label]           = parseFloat(colE) || 0;
+      fund.s2[label]           = s2val;
       fund.byStrategy[label]   = totval;
-      if (label.includes('Funds Input'))        fund.fundsInput = totval;
-      if (label.includes('Ideal'))              fund.ideal      = totval;
-      if (label.includes('Actual Fund Balance'))fund.actual     = totval;
-      if (label.includes('Currently Invested')) fund.invested   = s2val;
+      if (label.includes('Total Funds') || label.includes('Funds Input')) fund.fundsInput = totval;
+      if (label.includes('Ideal'))              fund.ideal      = s2val;
+      if (label.includes('Actual Funds') || label.includes('Actual Fund Balance')) fund.actual = totval;
+      if (label.includes('Invested'))           fund.invested   = s2val;
       if (label.includes('Tax Pending') || label.includes('Tax Provision')) fund.taxPending = s2val;
     }
   }
+
   return { summary, fund };
 }
 
@@ -608,6 +617,24 @@ async function loadData() {
       };
     }).filter(r => r.amount !== 0);
 
+    // ── PAT + EMI Paid — computed directly from source sheets, not Yearly Summary ──
+    // 2026-08-22: Yearly Summary's bottom-block 'PAT' row was removed in PG's
+    // restructure, and 'Cash Out'/EMI Paid is now a formula with a fixed range
+    // that won't auto-extend. Both are read straight from their real source
+    // (Closed Trades, S2_XIRR) instead, so they can't go stale or break again
+    // if Yearly Summary's layout changes further. Overwrites whatever (likely 0)
+    // parseSummary found under these legacy keys, so every existing consumer
+    // (fb.byStrategy['PAT'], fb.s2['PAT'], fb.s2['Cash Out'], etc.) keeps working.
+    const patFor = s => state.closed.filter(r => r.strategy === s).reduce((a, r) => a + (r.pat || 0), 0);
+    const patS0 = patFor('S0'), patS1 = patFor('S1'), patS2 = patFor('S2');
+    state.fundBlock.s0['PAT'] = patS0;
+    state.fundBlock.s1['PAT'] = patS1;
+    state.fundBlock.s2['PAT'] = patS2;
+    state.fundBlock.byStrategy['PAT'] = patS0 + patS1 + patS2;
+    const emiPaidTotal = Math.abs(state.s2xirr.filter(r => r.type === 'EMI').reduce((a, r) => a + (r.amount || 0), 0));
+    state.fundBlock.s2['Cash Out'] = emiPaidTotal;
+    state.fundBlock.byStrategy['Cash Out'] = emiPaidTotal;
+
     // ── S2 Prospects (positional): WL Ref | Ticker | CMP | Trigger | Away% | Qty | ~Value | Held? | Updated
     // NOTE: gviz silently serves the FIRST sheet when the requested tab doesn't
     // exist (e.g. before the first run creates S2_Prospects) — validate shape
@@ -734,13 +761,15 @@ function renderDashboard() {
 
   // ── Funds overview — Yearly Summary fund block as a waterfall + strategy cards
   const fb = state.fundBlock;
-  const fv = (m, l) => (m || {})[l] || 0;
+  // Accepts multiple key candidates so old-label sheet snapshots still resolve
+  // (Yearly Summary renamed several of these 2026-08-22 — see parseSummary()).
+  const fv = (m, ...ls) => { for (const l of ls) { if (m && m[l]) return m[l]; } return 0; };
   const fundsIn  = fb.fundsInput || 0;
   const patAll   = fv(fb.byStrategy, 'PAT');
-  const investedAll = fv(fb.byStrategy, 'Currently Invested');   // negative
-  const taxProv  = fv(fb.byStrategy, 'Tax Provision');
+  const investedAll = fv(fb.byStrategy, 'Invested', 'Currently Invested');   // negative
+  const taxProv  = fv(fb.byStrategy, 'Tax Pending', 'Tax Provision');
   const cashOut  = fv(fb.byStrategy, 'Cash Out');                // negative
-  const idealBal = fv(fb.byStrategy, 'Ideal Fund Balance');
+  const idealBal = fv(fb.byStrategy, 'Ideal Funds', 'Ideal Fund Balance');
   const actualBal = fb.actual || 0;
 
   let fundsCard = '';
@@ -774,8 +803,8 @@ function renderDashboard() {
       ['Booked',   'Booked Funds'],
       ['Floating', 'Floating Funds'],
       ['PAT',      'PAT'],
-      ['Holding',  'Currently Invested'],
-      ['Ideal',    'Ideal Fund Balance'],
+      ['Holding',  'Invested'],
+      ['Ideal',    'Ideal Funds'],
     ].filter(([, key]) => strats.some(s => fv(mFor(s), key)));
     const sfColor = (lbl, v) => v < 0 ? 'var(--negative)' : lbl === 'PAT' ? 'var(--positive)' : 'inherit';
     const stratFunds = strats.length ? `
@@ -1948,7 +1977,7 @@ async function refreshBalance() {
 async function syncBalance() {
   const live = state.funds && state.funds.live;
   if (live == null) return;
-  if (!confirm('Write live Kite balance ' + fmt(live) + ' into Yearly Summary → Actual Fund Balance?')) return;
+  if (!confirm('Write live Kite balance ' + fmt(live) + ' into Yearly Summary → Actual Funds?')) return;
   try {
     const j = await waPost({ fn: 'sync_balance' });
     alert('Sheet updated: ' + j.cell + ' = ₹' + Math.round(j.balance).toLocaleString('en-IN'));
@@ -2114,9 +2143,9 @@ function computeXIRR(cfs, guess=0.1) {
 }
 function s2FundPV(includeEmi) {
   const s2 = (state.fundBlock.s2 || {});
-  const invested = Math.abs(s2['Currently Invested'] || state.fundBlock.invested || 0);
-  const ideal    = s2['Ideal Fund Balance'] || s2['Ideal'] || state.fundBlock.ideal || 0;
-  const taxProv  = s2['Tax Provision'] || s2['Tax Pending'] || state.fundBlock.taxPending || 0;
+  const invested = Math.abs(s2['Invested'] || s2['Currently Invested'] || state.fundBlock.invested || 0);
+  const ideal    = s2['Ideal Funds'] || s2['Ideal Fund Balance'] || s2['Ideal'] || state.fundBlock.ideal || 0;
+  const taxProv  = s2['Tax Pending'] || s2['Tax Provision'] || state.fundBlock.taxPending || 0;
   const cashOut  = Math.abs(s2['Cash Out'] || 0);
   return invested + ideal - taxProv + (includeEmi ? 0 : cashOut);
 }
