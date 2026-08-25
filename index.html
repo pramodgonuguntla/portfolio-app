@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.22b</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.25</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -600,20 +600,24 @@ async function loadData() {
     });
 
     // ── S2_XIRR ───────────────────────────────────────────────────────────────
-    // Section A's "Loan" row and Section C's EMI rows reuse the same physical
+    // Section A's "Loan" rows and Section C's EMI rows reuse the same physical
     // columns for different fields (col C = Type in Section A, but = Principal
     // in Section C; col D = Note vs Interest). gviz infers ONE type per column
-    // across the whole sheet — since 24 EMI rows dominate col C with numbers,
-    // it silently nulls out the one text "Loan" entered there (confirmed via
-    // both gviz JSON and raw CSV — this isn't a caching/parsing bug, the value
-    // genuinely never reaches the client). So Type can't be read for that row;
-    // instead it's identified positionally — Section A's Loan row is always
-    // s2xirrRows[0] (checked 2026-08-22) — and EMI rows keep using col E.
+    // across the whole sheet — since the EMI rows dominate col C with numbers,
+    // it silently nulls out any text "Loan" entered there (confirmed via both
+    // gviz JSON and raw CSV — this isn't a caching/parsing bug, the value
+    // genuinely never reaches the client). So Type can't be read for those
+    // rows; they're identified positionally instead — Section A can now hold
+    // MULTIPLE Loan rows (2026-08-25: two loans, ₹7,13,000 + ₹5,87,000), so
+    // any row with a nonzero amount that appears BEFORE the first EMI-typed
+    // row is treated as a Loan row, not just row 0.
+    const firstEmiIdx = (s2xirrRows || []).findIndex(r => r[Object.keys(r)[4]] === 'EMI');
     state.s2xirr = (s2xirrRows || []).map((r, i) => {
       const keys = Object.keys(r);
       const isEMIRow = r[keys[4]] === 'EMI';
       const amt = parseAmt(r['Total EMI'] || r['Amount'] || r[keys[1]]);
-      const type = isEMIRow ? 'EMI' : (i === 0 && amt !== 0 ? 'Loan' : null);
+      const beforeFirstEmi = firstEmiIdx === -1 || i < firstEmiIdx;
+      const type = isEMIRow ? 'EMI' : (beforeFirstEmi && amt !== 0 ? 'Loan' : null);
       const isEMI = type === 'EMI';
       return {
         date:      r['Date'] || r[keys[0]],
@@ -1318,6 +1322,8 @@ function renderProgressS2() {
   // Invested = full S2 capital deployed (loan principal — shares + idle demat cash)
   const s2Invested   = loan;
   const s2PortValue  = s2Invested + s2Pat - emiPaid;
+  const pendingPrincipal = loan - principalPaid;
+  const totalEarnings    = s2PortValue - pendingPrincipal;
 
   const cfNet      = buildCF_Net();
   const cfGross    = buildCF_Gross();
@@ -1379,6 +1385,20 @@ function renderProgressS2() {
         <div style="text-align:right">
           <div style="font-size:var(--fs-10);color:var(--muted)">Invested</div>
           <div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(s2Invested)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loan-hero" style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:var(--fs-10);color:var(--positive);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Total Earnings</div>
+          <div style="font-size:var(--fs-26);font-weight:700;letter-spacing:-1px;margin-top:2px;color:${totalEarnings>=0?'var(--positive)':'var(--negative)'}">${fmt(totalEarnings)}</div>
+          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">portfolio − pending principal</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:var(--fs-10);color:var(--muted)">Pending Principal</div>
+          <div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(pendingPrincipal)}</div>
         </div>
       </div>
     </div>
@@ -2156,32 +2176,38 @@ function s2FundPV(includeEmi) {
   const cashOut  = Math.abs(s2['Cash Out'] || 0);
   return invested + ideal - taxProv + (includeEmi ? 0 : cashOut);
 }
+function loanRows() {
+  return state.s2xirr.filter(r => (r.type||'').toLowerCase() === 'loan');
+}
 function loanDate() {
-  for (const r of state.s2xirr) {
-    if ((r.type||'').toLowerCase() === 'loan') { const d = parsePortDate(r.date); if (d) return d; }
+  // Earliest loan's date — used only for the hero card's "since" label.
+  let earliest = null;
+  for (const r of loanRows()) {
+    const d = parsePortDate(r.date);
+    if (d && (!earliest || d < earliest)) earliest = d;
   }
-  return new Date(2026, 5, 1);
+  return earliest || new Date(2026, 5, 1);
 }
 function loanAmount() {
-  for (const r of state.s2xirr) {
-    if ((r.type||'').toLowerCase() === 'loan') return Math.abs(r.amount);
-  }
-  // No hardcoded fallback — 2026-08-22 per PG, this must read from S2_XIRR's
-  // Section A "Loan" row only. If that row is empty (as it currently is —
-  // checked via gviz JSON + raw CSV), this returns 0 so it's obviously wrong
-  // on screen rather than silently showing a stale guessed number.
-  return 0;
+  // Sum of ALL Loan-type rows in Section A — 2026-08-25: two loans now
+  // (₹7,13,000 disbursed Jun'26 + ₹5,87,000 disbursed Aug'26), summing to
+  // the sheet's total. No hardcoded fallback — reads from S2_XIRR only.
+  return loanRows().reduce((a, r) => a + Math.abs(r.amount), 0);
 }
 function buildCF_Net() {
   const today = new Date(); today.setHours(0,0,0,0);
-  return [{ date: loanDate(), amount: -loanAmount() }, { date: today, amount: s2FundPV(true) }];
+  const cfs = loanRows().map(r => ({ date: parsePortDate(r.date) || loanDate(), amount: -Math.abs(r.amount) }));
+  cfs.push({ date: today, amount: s2FundPV(true) });
+  return cfs;
 }
 function buildCF_Gross() {
   const today = new Date(); today.setHours(0,0,0,0);
-  return [{ date: loanDate(), amount: -loanAmount() }, { date: today, amount: s2FundPV(false) }];
+  const cfs = loanRows().map(r => ({ date: parsePortDate(r.date) || loanDate(), amount: -Math.abs(r.amount) }));
+  cfs.push({ date: today, amount: s2FundPV(false) });
+  return cfs;
 }
 function buildCF_Interest() {
-  const cfs = [{ date: loanDate(), amount: -loanAmount() }];
+  const cfs = loanRows().map(r => ({ date: parsePortDate(r.date) || loanDate(), amount: -Math.abs(r.amount) }));
   let hasInterest = false;
   for (const r of state.s2xirr) {
     if ((r.type||'').toLowerCase() !== 'emi' || r.interest == null) continue;
