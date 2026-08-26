@@ -190,7 +190,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.26f</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.26g</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -2035,8 +2035,14 @@ async function kiteLogin() {
   try {
     const j = await waGet({ fn: 'ping' });
     if (!j.loginUrl) { alert('KITE_API_KEY not set in Script Properties.'); return; }
-    const age = j.tokenTs ? 'Last token: ' + j.tokenTs + '\n\n' : '';
-    if (!confirm(age + 'Open Kite login?\nAfter logging in you\'ll land on a ✅ confirmation page — then come back here and Run VTP.')) return;
+    const age = j.tokenTs ? 'Token refreshed: ' + j.tokenTs + '\n\n' : '';
+    // ping now actually checks the token against Kite (not just "was it set
+    // today") — so a real ✅/❌ answer, no more blind "log in again?" every tap.
+    if (j.loggedIn) {
+      if (!confirm('✅ Already logged in to Kite.\n\n' + age + 'Log in again anyway?')) return;
+    } else if (!confirm('❌ Not logged in (or token expired).\n\n' + age + 'Open Kite login now?')) {
+      return;
+    }
     window.open(j.loginUrl, '_blank');
   } catch (e) {
     alert('Kite login failed to start: ' + e.message);
