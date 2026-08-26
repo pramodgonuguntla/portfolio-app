@@ -190,7 +190,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.27</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.27b</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -2069,14 +2069,56 @@ async function viewLastLog() {
   catch (e) { alert('Could not fetch logs: ' + e.message); }
 }
 
+// ── Run-button busy tracking + stuck-on-background recovery ──────────────────
+// 'run' and 'run_screener' share the same server-side script lock (they both
+// touch VTP_Repo). If the two are tapped close together, the second one either
+// waits on that lock or gets serialized by Apps Script's own execution queue —
+// and on iOS, backgrounding the tab (screen lock, app-switch) mid-request
+// suspends the page's JS timers, so the AbortController timeout meant to bound
+// a stalled fetch can itself never fire. Net effect: a button (and the
+// "Loading portfolio…" screen) stuck until a manual reload. Two mitigations:
+// (1) disable BOTH run buttons while either is in flight, so they can't be
+// stacked in the first place; (2) if the app comes back to the foreground
+// with a run still "active" far longer than any legitimate run could take,
+// force-reset and resync instead of leaving the user stuck. 2026-08-27.
+let activeRun = null;   // { btnId, idleIcon, startedAt } | null
+function setRunButtonsBusy_(busy) {
+  const a = document.getElementById('runvtp-btn');
+  const b = document.getElementById('runscreener-btn');
+  if (a) a.disabled = busy;
+  if (b) b.disabled = busy;
+}
+function beginRun_(btnId, runningIcon) {
+  const btn = document.getElementById(btnId);
+  const idleIcon = btn ? btn.textContent : '';
+  if (btn) btn.textContent = runningIcon;
+  setRunButtonsBusy_(true);
+  activeRun = { btnId: btnId, idleIcon: idleIcon, startedAt: Date.now() };
+  return idleIcon;
+}
+function endRun_(btnId, idleIcon) {
+  const btn = document.getElementById(btnId);
+  if (btn) btn.textContent = idleIcon;
+  setRunButtonsBusy_(false);
+  if (activeRun && activeRun.btnId === btnId) activeRun = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !activeRun) return;
+  const STUCK_MS = 3 * 60 * 1000;   // longer than any single waPost timeout budget (max 150s for 'run')
+  if (Date.now() - activeRun.startedAt < STUCK_MS) return;
+  console.warn('[VTP] run button stuck since backgrounding — force-resetting:', activeRun.btnId);
+  const stuck = activeRun;
+  endRun_(stuck.btnId, stuck.idleIcon);
+  loadData({ only: ['repo', 'closed', 'actions'] }).catch(() => {});
+});
+
 // Kite Actions (buy-GTT sync, fills, exits, retry, audit) — no Gmail screener
 // scan. Safe to run often; this is the ▶ button. Screener alerts are a
 // separate, slower-cadence op — see runScreener() below (📰 button).
 async function runVtp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!confirm('Run Kite Actions now?\n\nSyncs buy-GTTs, fills, exits, retries against Kite. Does not scan Gmail for new screener alerts — use 📰 for that.')) return;
-  const btn = document.getElementById('runvtp-btn');
-  btn.disabled = true; btn.textContent = '⏳';
+  const idleIcon = beginRun_('runvtp-btn', '⏳');
   try {
     const j = await waPost({ fn: 'run' });
     const pend = (j.actions || []).filter(a => a.status === 'Pending').length;
@@ -2091,7 +2133,7 @@ async function runVtp() {
     alert('Run failed: ' + e.message + '\n\nRefreshing — the check may have completed server-side even though the reply failed.');
     await loadData({ only: ['repo', 'closed', 'actions'] }).catch(() => {});
   } finally {
-    btn.disabled = false; btn.textContent = '▶';
+    endRun_('runvtp-btn', idleIcon);
   }
 }
 
@@ -2102,8 +2144,7 @@ async function runVtp() {
 async function runScreener() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!confirm('Run Screener Sync now?\n\nScans Gmail for new screener.in alerts and adds them to the watchlist.\nRun ▶ Kite Actions afterward to place buy GTTs for any new rows.')) return;
-  const btn = document.getElementById('runscreener-btn');
-  btn.disabled = true; btn.textContent = '⏳';
+  const idleIcon = beginRun_('runscreener-btn', '⏳');
   try {
     const j = await waPost({ fn: 'run_screener' });
     showLogs(j.logs, '✅ Screener sync complete');
@@ -2113,7 +2154,7 @@ async function runScreener() {
     alert('Screener sync failed: ' + e.message + '\n\nRefreshing — the sync may have completed server-side even though the reply failed.');
     await loadData({ only: ['repo'] }).catch(() => {});
   } finally {
-    btn.disabled = false; btn.textContent = '📰';
+    endRun_('runscreener-btn', idleIcon);
   }
 }
 
