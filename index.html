@@ -183,7 +183,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.26c</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.26e</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px">
@@ -1331,10 +1331,11 @@ async function submitEmi() {
     const j = await waPost({ fn: 'add_emi', total: t, principal: p || null, interest: i || null, date: d || null });
     alert('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
     emiFormOpen = false;
-    await loadData(); showTab('ps2');
+    // add_emi only ever writes to S2_XIRR — no need to re-pull the other 8 sheets.
+    await loadData({ only: ['s2xirr'] }); showTab('ps2');
   } catch (e) {
     alert('Failed: ' + e.message + '\n\nRefreshing — check Progress S2 for whether it went through.');
-    await loadData().catch(() => {});
+    await loadData({ only: ['s2xirr'] }).catch(() => {});
   }
 }
 function emiFormHtml() {
@@ -1515,10 +1516,12 @@ async function syncProgress() {
     if ((j.splits    || []).length) extra.push('🔀 Split: '       + j.splits.join('; '));
     if (j.projShift) extra.push('📅 Projection shifted +' + j.projShift + ' month(s) → opens at ' + j.projFirst + ' (ahead of schedule)');
     alert(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
-    await loadData(); showTab('ps1');
+    // sync_progress only touches Progress_S1 (lots/splits/projection) and
+    // Yearly Summary (Booked Funds bump) — no need to re-pull the rest.
+    await loadData({ only: ['prog1', 'summary'] }); showTab('ps1');
   } catch (e) {
     alert('Sync failed: ' + e.message + '\n\nRefreshing — check Progress S1 for whether it went through.');
-    await loadData().catch(() => {});
+    await loadData({ only: ['prog1', 'summary'] }).catch(() => {});
   }
 }
 
@@ -1551,7 +1554,20 @@ async function proposeS2Buys() {
   if (b) b.textContent = '⏳';
   try {
     const j = await waPost({ fn: 's2_buys' });
-    if (j.actions) state.actions = j.actions;
+    // webListActions_ returns {row, ...} — was being assigned straight onto
+    // state.actions, which every other action row expects as {sheetRow, ...}.
+    // Left every row's sheetRow undefined until the next full reload, which
+    // silently broke "Select all" (Set of one `undefined`) and individual
+    // row selection for the WHOLE Actions list, not just the new S2 rows.
+    // 2026-08-26.
+    if (j.actions) {
+      state.actions = j.actions.map(a => ({
+        sheetRow: a.row, action: a.action, symbol: a.symbol, strategy: a.strategy,
+        details: a.details, recPrice: a.recPrice != null ? a.recPrice : '',
+        recQty: a.recQty != null ? a.recQty : '', status: a.status || 'Pending',
+      }));
+      selectedRows.clear();
+    }
     if (j.added) {
       alert('💰 ' + j.added + ' S2 buy proposal(s) added to Actions\n\ncash ₹' +
             Math.round(j.funds || 0).toLocaleString('en-IN') + ' → ' + (j.lots || 0) + ' lots');
@@ -1562,7 +1578,7 @@ async function proposeS2Buys() {
     }
   } catch (e) {
     alert('Propose S2 buys failed: ' + e.message + '\n\nRefreshing — check Actions for whether it went through.');
-    await loadData().catch(() => {});
+    await loadData({ only: ['actions'] }).catch(() => {});
     renderProspects();
   }
 }
@@ -1599,7 +1615,7 @@ async function cancelS2Buys() {
       // The cancel loop over several Kite calls can outlast the phone's
       // connection even after Kite already cancelled the GTTs — resync from
       // the sheet instead of assuming nothing happened.
-      await loadData().catch(() => {});
+      await loadData({ only: ['actions', 'prospects'] }).catch(() => {});
       alert('Cancel request didn\'t confirm cleanly: ' + e.message + '\n\nRefreshed — check S2 Prospects/Actions for the real state before retrying.');
     }
   } catch (e) {
@@ -1812,7 +1828,7 @@ async function refreshStaleCmp() {
     renderStale();
   } catch (e) {
     alert('CMP refresh failed: ' + e.message);
-    await loadData().catch(() => {});
+    await loadData({ only: ['stale'] }).catch(() => {});
   }
 }
 // Full rebuild — re-scans a year of screener mail, so it takes a while
@@ -1828,7 +1844,7 @@ async function rerunStale() {
     alert('Stale rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
   } catch (e) {
     alert('Rebuild failed: ' + e.message + '\n\nRefreshing — the rebuild may have completed server-side even though the reply failed.');
-    await loadData().catch(() => {});
+    await loadData({ only: ['stale'] }).catch(() => {});
     renderStale();
   }
 }
@@ -2072,7 +2088,7 @@ async function syncBalance() {
     renderDashboard();
   } catch (e) {
     alert('Sync failed: ' + e.message + '\n\nRefreshing — check Yearly Summary for whether it went through.');
-    await loadData().catch(() => {});
+    await loadData({ only: ['summary'] }).catch(() => {});
   }
 }
 
