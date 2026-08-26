@@ -78,8 +78,8 @@
   #header h1 { font-size: var(--fs-17); font-weight: 700; letter-spacing: -0.3px; }
   #header h1 .ver { font-size: var(--fs-9); font-weight: 500; color: var(--muted); letter-spacing: 0; vertical-align: middle; margin-left: 4px; }
   #header .sub { font-size: var(--fs-11); color: var(--muted); margin-top: 1px; }
-  #refresh-btn, #local-btn, #runvtp-btn, #settings-btn, #kite-btn, #theme-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: var(--fs-12); cursor: pointer; display: flex; align-items: center; gap: 6px; }
-  #refresh-btn:active, #local-btn:active, #runvtp-btn:active, #settings-btn:active, #kite-btn:active, #theme-btn:active { opacity: 0.7; }
+  #refresh-btn, #local-btn, #runvtp-btn, #runscreener-btn, #settings-btn, #kite-btn, #theme-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: var(--fs-12); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  #refresh-btn:active, #local-btn:active, #runvtp-btn:active, #runscreener-btn:active, #settings-btn:active, #kite-btn:active, #theme-btn:active { opacity: 0.7; }
   #runvtp-btn:disabled { opacity: 0.5; cursor: wait; }
   .exec-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); margin: 0 -16px -16px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
   .exec-bar button { flex: 1; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: var(--fs-14); font-weight: 600; cursor: pointer; }
@@ -190,12 +190,13 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.26g</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.08.27</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="kite-btn" onclick="kiteLogin()" title="Refresh Kite token">🔑</button>
-      <button id="runvtp-btn" onclick="runVtp()" title="Run VTP" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶</button>
+      <button id="runscreener-btn" onclick="runScreener()" title="Run Screener Sync (Gmail alerts → watchlist)" style="border-color:rgba(59,130,246,0.5);color:var(--accent)">📰</button>
+      <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶</button>
       <button id="refresh-btn" onclick="loadData()">↻</button>
       <button id="theme-btn" onclick="toggleTheme()" title="Light / dark theme">☾</button>
       <button id="settings-btn" onclick="openSettings()">⚙</button>
@@ -2007,7 +2008,7 @@ async function waParseJson_(res) {
 // already completed server-side (placed a real order / written a sheet), so
 // blindly re-sending could double it. The catch blocks at each call site
 // already say as much and resync from the sheet instead of retrying blind.
-const WA_POST_TIMEOUT_MS_ = { run: 150000, execute: 120000, stale_full: 120000, s2_buys: 60000 };
+const WA_POST_TIMEOUT_MS_ = { run: 150000, run_screener: 90000, execute: 120000, stale_full: 120000, s2_buys: 60000 };
 async function waPost(payload) {
   if (!WA_URL) throw new Error('Web App URL not set — tap ⚙ and add URL + token');
   payload.token = WA_TOKEN;
@@ -2068,17 +2069,20 @@ async function viewLastLog() {
   catch (e) { alert('Could not fetch logs: ' + e.message); }
 }
 
+// Kite Actions (buy-GTT sync, fills, exits, retry, audit) — no Gmail screener
+// scan. Safe to run often; this is the ▶ button. Screener alerts are a
+// separate, slower-cadence op — see runScreener() below (📰 button).
 async function runVtp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Run the VTP daily check now?')) return;
+  if (!confirm('Run Kite Actions now?\n\nSyncs buy-GTTs, fills, exits, retries against Kite. Does not scan Gmail for new screener alerts — use 📰 for that.')) return;
   const btn = document.getElementById('runvtp-btn');
   btn.disabled = true; btn.textContent = '⏳';
   try {
     const j = await waPost({ fn: 'run' });
     const pend = (j.actions || []).filter(a => a.status === 'Pending').length;
     selectedRows.clear();
-    showLogs(j.logs, '✅ Daily check complete — ' + pend + ' pending action(s)');
-    // A daily check only ever touches VTP_Repo, Closed Trades, Actions (and
+    showLogs(j.logs, '✅ Kite Actions complete — ' + pend + ' pending action(s)');
+    // Kite Actions only ever touches VTP_Repo, Closed Trades, Actions (and
     // RunLog) — everything else (Yearly Summary, Progress_*, S2_XIRR,
     // S2_Prospects, Stale) is untouched, so skip re-fetching those.
     await loadData({ only: ['repo', 'closed', 'actions'] });
@@ -2088,6 +2092,28 @@ async function runVtp() {
     await loadData({ only: ['repo', 'closed', 'actions'] }).catch(() => {});
   } finally {
     btn.disabled = false; btn.textContent = '▶';
+  }
+}
+
+// Screener Sync (📰 button) — Gmail scan for new screener.in alerts → applies
+// them to the VTP_Repo watchlist only. No Kite calls, no Actions/Closed
+// Trades changes. Run this once a day (or on demand) before Kite Actions so
+// any new watchlist rows get their buy GTTs placed on the next ▶ run.
+async function runScreener() {
+  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (!confirm('Run Screener Sync now?\n\nScans Gmail for new screener.in alerts and adds them to the watchlist.\nRun ▶ Kite Actions afterward to place buy GTTs for any new rows.')) return;
+  const btn = document.getElementById('runscreener-btn');
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const j = await waPost({ fn: 'run_screener' });
+    showLogs(j.logs, '✅ Screener sync complete');
+    // Screener sync only ever touches VTP_Repo (new/updated watchlist rows).
+    await loadData({ only: ['repo'] });
+  } catch (e) {
+    alert('Screener sync failed: ' + e.message + '\n\nRefreshing — the sync may have completed server-side even though the reply failed.');
+    await loadData({ only: ['repo'] }).catch(() => {});
+  } finally {
+    btn.disabled = false; btn.textContent = '📰';
   }
 }
 
