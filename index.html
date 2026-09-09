@@ -190,7 +190,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.09.09</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.09.09b</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -1222,10 +1222,17 @@ function renderProgressS1() {
   const recovPct   = invTotal ? Math.round(bookedAmt / invTotal * 100) : 0;
 
   // ── Per-lot completion + next-split ETA (last scheduled slot per lot)
+  // Child lots (InvID "N.1"/"N.2", created when parent N hits 10/10) are
+  // deliberately recorded with Inv=0 in the sheet — it's the parent's own
+  // capital continuing, not fresh money, so Yearly Summary isn't double-
+  // counted (see Progress.js Phase 2). They ARE funded, just not with new
+  // cash — "not funded yet" / dimmed styling is only correct for a genuine
+  // future whole-ID row waiting on its invested month to arrive.
   const lotRows = lots.map(l => {
-    const b    = l.slots.filter(s => s.toLowerCase() === 'booked').length;
-    const pend = l.slots.filter(s => s && s.toLowerCase() !== 'booked');
-    return { num: l.num, month: l.month, inv: parseFloat(l.inv) || 0, b,
+    const b       = l.slots.filter(s => s.toLowerCase() === 'booked').length;
+    const pend    = l.slots.filter(s => s && s.toLowerCase() !== 'booked');
+    const isChild = String(l.num).indexOf('.') !== -1;
+    return { num: l.num, month: l.month, inv: parseFloat(l.inv) || 0, b, isChild,
              eta: pend.length ? pend[pend.length - 1] : null };
   });
   const nextSplit = lotRows
@@ -1286,9 +1293,9 @@ function renderProgressS1() {
         <thead><tr><th>#</th><th>Lot</th><th style="width:52%">${bpHeader}</th><th style="text-align:right">Target</th></tr></thead>
         <tbody>
           ${visibleLotRows.length ? visibleLotRows.map(r => `
-          <tr style="${r.inv ? '' : 'opacity:0.5'}">
+          <tr style="${r.inv || r.isChild ? '' : 'opacity:0.5'}">
             <td style="color:var(--muted)">${r.num}</td>
-            <td style="font-weight:600">${r.month}${r.inv ? '' : `<div style="font-size:var(--fs-9);color:var(--muted)">not funded yet</div>`}</td>
+            <td style="font-weight:600">${r.month}${!r.inv && !r.isChild ? `<div style="font-size:var(--fs-9);color:var(--muted)">not funded yet</div>` : ''}${!r.inv && r.isChild ? `<div style="font-size:var(--fs-9);color:var(--muted)">via parent lot</div>` : ''}</td>
             <td>${bpCells(r.b)}</td>
             <td style="text-align:right;font-size:var(--fs-11);color:${r.b === 10 ? 'var(--positive)' : 'var(--muted)'};font-weight:${r.b === 10 ? 700 : 400}">
               ${r.b === 10 ? '✓ full' : (r.eta || '—')}</td>
