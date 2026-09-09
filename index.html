@@ -190,7 +190,7 @@
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.08.27b</span></h1>
+      <h1>VTP Portfolio <span class="ver">v2026.09.09</span></h1>
       <div class="sub" id="last-updated">Loading…</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -1167,6 +1167,8 @@ function renderPositions() {
 }
 
 // ── Progress S1 — booking projection (mobile-friendly 3-col table) ────────────
+let showCompletedS1Lots = false;
+function toggleCompletedS1Lots() { showCompletedS1Lots = !showCompletedS1Lots; renderProgressS1(); }
 function renderProgressS1() {
   const lots = state.prog1Lots || [];
   const book = state.prog1Book || [];
@@ -1269,21 +1271,28 @@ function renderProgressS1() {
     <div style="${slotFlex};font-size:var(--fs-11);font-weight:700">
       ${Array.from({length: 10}, (_, i) => `<span style="${slotCell};color:${i < b ? 'var(--positive)' : 'var(--negative)'}">${i < b ? 'B' : 'P'}</span>`).join('')}
     </div>`;
+  // Fully-booked (10/10) lots are done — no further tracking value, and left
+  // in forever this table only grows. Hidden by default (PG's request,
+  // 2026-09-09) with a toggle to bring them back if ever needed for history.
+  const completeCount   = lotRows.filter(r => r.b === 10).length;
+  const visibleLotRows  = showCompletedS1Lots ? lotRows : lotRows.filter(r => r.b < 10);
   const lotsCard = `
-    <div class="sec-head" style="margin-top:14px">Lots <span class="badge">${lotRows.filter(r => r.b === 10).length} complete</span></div>
+    <div class="sec-head" style="margin-top:14px">Lots <span class="badge">${completeCount} complete</span>
+      ${completeCount ? `<span class="badge" style="cursor:pointer;color:var(--accent)" onclick="toggleCompletedS1Lots()">${showCompletedS1Lots ? 'hide completed' : 'show completed'}</span>` : ''}
+    </div>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
       <table class="tbl">
         <thead><tr><th>#</th><th>Lot</th><th style="width:52%">${bpHeader}</th><th style="text-align:right">Target</th></tr></thead>
         <tbody>
-          ${lotRows.map(r => `
+          ${visibleLotRows.length ? visibleLotRows.map(r => `
           <tr style="${r.inv ? '' : 'opacity:0.5'}">
             <td style="color:var(--muted)">${r.num}</td>
             <td style="font-weight:600">${r.month}${r.inv ? '' : `<div style="font-size:var(--fs-9);color:var(--muted)">not funded yet</div>`}</td>
             <td>${bpCells(r.b)}</td>
             <td style="text-align:right;font-size:var(--fs-11);color:${r.b === 10 ? 'var(--positive)' : 'var(--muted)'};font-weight:${r.b === 10 ? 700 : 400}">
               ${r.b === 10 ? '✓ full' : (r.eta || '—')}</td>
-          </tr>`).join('')}
+          </tr>`).join('') : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">All lots complete — tap "show completed" above to review.</td></tr>`}
         </tbody>
       </table>
       </div>
