@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="VTP Portfolio"/>
-<title>VTP Portfolio</title>
+<meta name="apple-mobile-web-app-title" content="My Portfolio"/>
+<title>My Portfolio</title>
 <style>
   :root {
     --bg:        #0a0f1e;
@@ -31,24 +31,25 @@
 
     /* ── SIZE KNOBS — tweak these to resize the whole UI ───────────────────
        --scale multiplies every text size at once (1 = default; try 1.1 bigger).
-       Each --fs-N is "N px" so a size that was 26px is now --fs-26, etc.
+       Type scale is 5 steps: 11 / 13 / 15 / 20 / 28 px. The legacy --fs-N names
+       are kept as aliases onto those 5 steps (e.g. --fs-9 and --fs-10 → 11px).
        Card geometry (padding / corner radius / gaps) is below the type scale. */
     --scale:       1;
-    --fs-9:   calc( 9px * var(--scale));
-    --fs-10:  calc(10px * var(--scale));
-    --fs-11:  calc(11px * var(--scale));
-    --fs-12:  calc(12px * var(--scale));
-    --fs-13:  calc(13px * var(--scale));
-    --fs-14:  calc(14px * var(--scale));
-    --fs-15:  calc(15px * var(--scale));
-    --fs-16:  calc(16px * var(--scale));
-    --fs-17:  calc(17px * var(--scale));
-    --fs-18:  calc(18px * var(--scale));
-    --fs-20:  calc(20px * var(--scale));
-    --fs-22:  calc(22px * var(--scale));
-    --fs-26:  calc(26px * var(--scale));
-    --fs-28:  calc(28px * var(--scale));
-    --fs-32:  calc(32px * var(--scale));
+    --fs-9: calc(11px * var(--scale));
+    --fs-10: calc(11px * var(--scale));
+    --fs-11: calc(11px * var(--scale));
+    --fs-12: calc(13px * var(--scale));
+    --fs-13: calc(13px * var(--scale));
+    --fs-14: calc(15px * var(--scale));
+    --fs-15: calc(15px * var(--scale));
+    --fs-16: calc(15px * var(--scale));
+    --fs-17: calc(20px * var(--scale));
+    --fs-18: calc(20px * var(--scale));
+    --fs-20: calc(20px * var(--scale));
+    --fs-22: calc(20px * var(--scale));
+    --fs-26: calc(28px * var(--scale));
+    --fs-28: calc(28px * var(--scale));
+    --fs-32: calc(28px * var(--scale));
     --card-pad:    16px;   /* inner padding of .card (KPI box size) */
     --card-radius: 12px;   /* corner rounding of .card */
     --card-gap:    12px;   /* vertical gap between cards */
@@ -67,12 +68,16 @@
     --muted:     #5b6b7f;
     --positive:  #059669;
     --negative:  #dc2626;
+    --s1:        #2563eb;
+    --s2:        #9333ea;
+    --s0:        #b45309;
+    --h0:        #5b6b7f;
     --wash:      rgba(15,23,42,0.04);
     --wash2:     rgba(15,23,42,0.05);
     --inborder:  rgba(15,23,42,0.22);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; font-size: var(--fs-14); }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
   #app { display: flex; flex-direction: column; height: 100dvh; }
   #header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   #header h1 { font-size: var(--fs-17); font-weight: 700; letter-spacing: -0.3px; }
@@ -81,16 +86,34 @@
   #refresh-btn, #local-btn, #runvtp-btn, #runscreener-btn, #settings-btn, #kite-btn, #theme-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: var(--fs-12); cursor: pointer; display: flex; align-items: center; gap: 6px; }
   #refresh-btn:active, #local-btn:active, #runvtp-btn:active, #runscreener-btn:active, #settings-btn:active, #kite-btn:active, #theme-btn:active { opacity: 0.7; }
   #runvtp-btn:disabled { opacity: 0.5; cursor: wait; }
+  #header #runvtp-btn, #header #refresh-btn, #header #settings-btn { width: 38px; height: 30px; padding: 0; justify-content: center; font-size: var(--fs-18); line-height: 1; }
+  #header .hic { width: 20px; height: 20px; display: block; }
+  .hic.spin, .ico.spin { animation: spin 0.9s linear infinite; }
+  .ico { width: 1.1em; height: 1.1em; vertical-align: -0.2em; flex-shrink: 0; }
+  .empty-ico .ico { width: 34px; height: 34px; opacity: 0.6; }
+  .mini-card.pick { cursor: pointer; }
+  .mini-card.pick.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
   .exec-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); margin: 0 -16px -16px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
   .exec-bar button { flex: 1; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: var(--fs-14); font-weight: 600; cursor: pointer; }
   .exec-bar button:disabled { opacity: 0.5; }
   .row-check { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
   .cls-sel { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 3px 6px; font-size: var(--fs-11); }
   #local-btn.local-on { border-color: var(--accent2); color: var(--accent2); }
-  #tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  #tabs::-webkit-scrollbar { display: none; }
-  .tab { flex-shrink: 0; padding: 10px 16px; font-size: var(--fs-12); font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color 0.15s; }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  /* Bottom tab bar — 4 groups; sub-pages switch via the segmented control */
+  #bnav { display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom); }
+  .bn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 7px; min-height: 52px; color: var(--muted); font-size: var(--fs-11); font-weight: 600; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
+  .bn .ic { line-height: 1; }
+  .bn .ic .ico { width: 23px; height: 23px; vertical-align: 0; }
+  .bn.active { color: var(--accent); }
+  .bn .nb { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: var(--fs-10); font-weight: 700; line-height: 17px; text-align: center; }
+  .seg { display: flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; margin-bottom: 14px; }
+  .seg div { flex: 1; text-align: center; padding: 8px 4px; border-radius: 7px; font-size: var(--fs-13); font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg div.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+  .cfg-quick { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+  .cfg-quick button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 12px 4px; font-size: var(--fs-12); font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; }
+  .cfg-quick button .ic .ico { width: 22px; height: 22px; vertical-align: 0; }
+  .cfg-quick button:disabled { opacity: 0.5; }
+  #config-close { background: none; border: none; color: var(--muted); font-size: var(--fs-20); cursor: pointer; padding: 0 4px; }
   #content { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: var(--card-pad); margin-bottom: var(--card-gap); }
   .card-title { font-size: var(--fs-11); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
@@ -107,11 +130,11 @@
   .pill-s0 { background: rgba(245,158,11,0.15); color: var(--s0); }
   .pill-h0 { background: rgba(100,116,139,0.15); color: var(--h0); }
   .st-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:var(--fs-9); font-weight:700; }
-  .st-hold { background: rgba(16,185,129,0.15);  color: #34d399; }
-  .st-pq   { background: rgba(59,130,246,0.15);  color: #60a5fa; }
-  .st-os   { background: rgba(168,85,247,0.15);  color: #c084fc; }
-  .st-nik  { background: rgba(100,116,139,0.2);  color: #94a3b8; }
-  .st-wl   { background: rgba(245,158,11,0.15);  color: #fbbf24; }
+  .st-hold { background: rgba(16,185,129,0.15);  color: var(--positive); }
+  .st-pq   { background: rgba(59,130,246,0.15);  color: var(--s1); }
+  .st-os   { background: rgba(168,85,247,0.15);  color: var(--s2); }
+  .st-nik  { background: rgba(100,116,139,0.2);  color: var(--muted); }
+  .st-wl   { background: rgba(245,158,11,0.15);  color: var(--warn); }
   .st-oob  { background: rgba(100,116,139,0.15); color: var(--muted); }
   .strat-card { border-radius: 10px; padding: 14px; margin-bottom: 8px; }
   .strat-card.s1 { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
@@ -123,8 +146,10 @@
   .strat-card .d-label { font-size: var(--fs-9); color: var(--muted); text-transform: uppercase; }
   .strat-card .d-val { font-size: var(--fs-12); font-weight: 600; margin-top: 1px; }
   .tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-12); }
-  .tbl th { text-align: left; color: var(--muted); font-size: var(--fs-10); font-weight: 600; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-  .tbl td { padding: 8px; border-bottom: 1px solid rgba(30,45,69,0.5); vertical-align: middle; }
+  .tbl th:first-child, .tbl td:first-child { padding-left: 10px; }
+  .tbl th:last-child, .tbl td:last-child { padding-right: 10px; }
+  .tbl th { text-align: left; color: var(--muted); font-size: var(--fs-10); font-weight: 600; text-transform: uppercase; padding: 6px 5px; border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 8px 5px; border-bottom: 1px solid rgba(30,45,69,0.5); vertical-align: middle; }
   .tbl tr:last-child td { border-bottom: none; }
   .tbl tr:hover td { background: var(--wash); }
   .scroll-tbl { max-height: 396px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -140,7 +165,7 @@
   #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); }
   .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .error-box { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 16px; text-align: center; color: #fca5a5; font-size: var(--fs-13); line-height: 1.5; }
+  .error-box { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 16px; text-align: center; color: var(--negative); font-size: var(--fs-13); line-height: 1.5; }
   .sec-head { font-size: var(--fs-13); font-weight: 700; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
   .sec-head .badge { font-size: var(--fs-10); background: var(--surface2); padding: 2px 7px; border-radius: 10px; color: var(--muted); font-weight: 500; }
   .trade-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -163,10 +188,10 @@
   #wa-token-input { font-size: var(--fs-15); padding: 16px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.2px; }
   #save-sid { width: 100%; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: var(--fs-14); font-weight: 600; cursor: pointer; margin-top: 4px; }
   #cfg-advanced { margin-top: 14px; }
-  #cfg-advanced summary { font-size: var(--fs-11); color: var(--muted); cursor: pointer; list-style: none; }
+  #cfg-advanced summary { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: var(--fs-13); font-weight: 600; color: var(--text); cursor: pointer; list-style: none; }
   #cfg-advanced summary::-webkit-details-marker { display: none; }
-  #cfg-advanced summary:before { content: '▸ '; }
-  #cfg-advanced[open] summary:before { content: '▾ '; }
+  #cfg-advanced summary:after { content: '›'; font-size: var(--fs-20); color: var(--muted); transition: transform .15s; }
+  #cfg-advanced[open] summary:after { transform: rotate(90deg); }
   #cfg-advanced .cfg-input { margin-top: 10px; font-size: var(--fs-12); }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
   .metric-row { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:var(--fs-12); }
@@ -180,40 +205,156 @@
   .inp { width:100%; max-width:100%; display:block; box-sizing:border-box; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:11px 12px; color:var(--text); font-size:var(--fs-14); margin-bottom:8px; -webkit-appearance:none; appearance:none; min-height:44px; }
   .inp:focus { border-color: var(--accent); outline: none; }
   .mini-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; color:var(--text); font-size:var(--fs-12); font-weight:600; cursor:pointer; }
+  /* Hero card — one per page: label + context (top), big number, sub-cards */
+  .hero-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .hero-label { font-size: var(--fs-13); font-weight: 600; color: var(--muted); }
+  .hero-ctx { font-size: var(--fs-11); color: var(--muted); text-align: right; }
+  .hero-val { font-size: var(--fs-28); font-weight: 700; letter-spacing: -0.5px; margin: 2px 0 12px; }
+  .hero-foot { font-size: var(--fs-11); color: var(--muted); margin-top: 10px; }
+  .hsub { background: var(--wash); border: 1px solid var(--inborder); border-radius: 10px; padding: 10px; min-width: 0; }
+  .sub-label { font-size: var(--fs-11); color: var(--muted); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub-val { font-size: var(--fs-15); font-weight: 700; }
+  .more-toggle { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: var(--fs-13); font-weight: 600; color: var(--accent); cursor: pointer; }
+  .more-toggle .chev { transition: transform .15s; }
+  .more-toggle.open .chev { transform: rotate(90deg); }
+  .emi-add { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; color: var(--accent); background: var(--surface2); border: 1px solid var(--border); cursor: pointer; }
+  .emi-add .ico { width: 18px; height: 18px; vertical-align: 0; transition: transform .15s; }
+  .emi-add.open .ico { transform: rotate(45deg); }
+  .emi-tile { display: block; cursor: text; padding: 8px; }
+  .emi-tile input { width: 100%; min-width: 0; border: none; background: transparent; color: var(--text); font-size: var(--fs-15); font-weight: 700; padding: 2px 0; outline: none; -webkit-appearance: none; appearance: none; font-family: inherit; }
+  .emi-tile input[type=date] { font-size: var(--fs-13); }
+  .emi-tile input[type=date]::-webkit-calendar-picker-indicator { display: none; }
+  .emi-tile input::placeholder { color: var(--muted); font-weight: 400; font-size: var(--fs-13); }
+  .emi-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .emi-tile:focus-within { border-color: var(--accent); }
+  #ask { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; display: none; align-items: flex-end; }
+  #ask.open { display: flex; }
+  #ask-box { background: var(--surface); width: 100%; border-radius: 16px 16px 0 0; padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); }
+  #ask-title { font-size: var(--fs-17); font-weight: 700; margin-bottom: 8px; }
+  #ask-msg { font-size: var(--fs-13); color: var(--muted); white-space: pre-wrap; line-height: 1.5; max-height: 45vh; overflow-y: auto; margin-bottom: 16px; }
+  #ask-ok, #ask-cancel { display: block; width: 100%; min-height: 52px; border-radius: 12px; font-size: var(--fs-15); font-weight: 700; cursor: pointer; }
+  #ask-ok { background: var(--accent); color: #fff; border: none; margin-bottom: 10px; }
+  #ask-cancel { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .sub-tab .ico { width: 13px; height: 13px; vertical-align: -2px; }
+  .chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip-row .sub-tab { flex-shrink: 0; white-space: nowrap; }
+  .sort-bar { display: flex; align-items: center; gap: 6px; margin: 4px 0 10px; overflow-x: auto; scrollbar-width: none; }
+  .sort-bar::-webkit-scrollbar { display: none; }
+  .sort-lbl { font-size: var(--fs-11); color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-right: 2px; }
+  .sort-chip { flex-shrink: 0; padding: 5px 10px; border-radius: 16px; font-size: var(--fs-13); color: var(--muted); border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+  .sort-chip.on { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .strat-sub { cursor: pointer; }
+  .strat-sub .sub-label { overflow: visible; }
+  .sub-n { flex-shrink: 0; }
+  .sub-filters { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .sub-filters .sub-tabs { margin-bottom: 8px; }
+  .strat-sub.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .strat-sub.off { opacity: 0.45; }
+  .list-card { padding: 2px 12px; }
+  /* one-line lists render as a real table so every column sizes to its content
+     across all rows and spare width is shared out evenly (no dead gap after Scrip) */
+  .list-card:has(> .lr) { display: table; width: 100%; border-collapse: separate; border-spacing: 0; }
+  .list-card > .lr { display: table-row; }
+  .list-card > .lr > span { display: table-cell; vertical-align: middle; padding: 10px 0 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: visible; }
+  .list-card > .lr > span:first-child { padding-left: 0; }
+  .list-card > .lr:last-child > span { border-bottom: none; }
+  .list-card > .lr-h > span { padding-top: 9px; padding-bottom: 9px; }
+  .list-card > .lr > .lr-t { display: table-cell; white-space: normal; overflow-wrap: anywhere; }
+  .lr-t .sdot { margin-right: 6px; vertical-align: 1px; }
+  .lr-t .nogtt { margin-left: 5px; vertical-align: 1px; }
+  .lr { display: grid; gap: 6px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-13); }
+  .lr:last-child { border-bottom: none; }
+  .lr-hold { grid-template-columns: minmax(0,1fr) 50px 30px 48px 54px; gap: 6px; }
+  .lr-st   { grid-template-columns: minmax(0,1fr) 40px 56px 56px 36px; gap: 5px; }
+  .lr-pr   { grid-template-columns: minmax(0,1fr) 50px 52px 32px 56px; gap: 5px; }
+  .qbtns { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .qbtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: var(--fs-13); font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .qbtn .ico { width: 16px; height: 16px; }
+  .lr-cl   { grid-template-columns: minmax(0,1fr) 54px 54px 64px; gap: 6px; }
+  .lr-wl   { grid-template-columns: minmax(0,1fr) 66px 30px 62px; gap: 6px; }
+  .lr > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lr .r { text-align: right; }
+  .lr .m { color: var(--muted); }
+  .lr .b { font-weight: 700; }
+  .lr .sm { font-size: var(--fs-11); }
+  .lr-t { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .lr-h { font-size: var(--fs-11); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; padding: 8px 0; }
+  .lr-h span { cursor: pointer; user-select: none; }
+  .lr-h span.on { color: var(--accent); }
+  .sdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .sd-s1 { background: var(--s1); } .sd-s2 { background: var(--s2); } .sd-s0 { background: var(--s0); }
+  .nogtt { color: var(--warn); font-size: var(--fs-11); border: 1.5px solid var(--warn); border-radius: 50%; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .mini-chips { gap: 5px; }
+  .mini-chips .sub-tab { padding: 5px 9px; font-size: var(--fs-13); }
+  .chip-sep { width: 1px; align-self: stretch; background: var(--border); flex-shrink: 0; margin: 2px 2px; }
+  .li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .li:last-child { border-bottom: none; }
+  .li-main, .li-right { min-width: 0; }
+  .li-right { text-align: right; flex-shrink: 0; }
+  .li-title { font-size: var(--fs-15); font-weight: 700; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .li-sub { font-size: var(--fs-13); color: var(--muted); margin-top: 3px; }
+  .li-val { font-size: var(--fs-15); font-weight: 700; }
+  .alert-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--card-radius); margin-bottom: var(--card-gap); cursor: pointer; font-size: var(--fs-13); font-weight: 600; border: 1px solid; }
+  .alert-banner.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+  .alert-banner.err  { background: color-mix(in srgb, var(--negative) 10%, transparent); border-color: color-mix(in srgb, var(--negative) 40%, transparent); color: var(--negative); }
+  .alert-banner .grow { flex: 1; }
+  .act-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .act-row:last-child { border-bottom: none; }
+  .act-row.done { cursor: default; opacity: 0.7; }
+  .act-row .row-check { width: 22px; height: 22px; margin-top: 1px; }
+  .act-row.sel .act-sym { color: var(--accent); }
+  .act-done-ico { color: var(--positive); flex-shrink: 0; margin-top: 1px; }
+  .act-done-ico .ico { width: 20px; height: 20px; }
+  .act-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .act-sym { font-size: var(--fs-15); font-weight: 700; }
+  .type-tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: var(--fs-11); font-weight: 700; }
+  .t-buy     { background: color-mix(in srgb, var(--positive) 15%, transparent); color: var(--positive); }
+  .t-sell    { background: color-mix(in srgb, var(--negative) 13%, transparent); color: var(--negative); }
+  .t-restore { background: color-mix(in srgb, var(--warn) 16%, transparent);     color: var(--warn); }
+  .t-other   { background: var(--surface2); color: var(--muted); }
+  .act-tiles { display: grid; gap: 6px; margin-top: 10px; }
+  .act-tile { display: block; padding: 7px 6px; min-width: 0; }
+  .act-tile .sub-label { display: flex; align-items: center; gap: 3px; }
+  .act-tile .sub-label .ico { width: 11px; height: 11px; }
+  .act-tv, .act-tile input { font-size: var(--fs-13); font-weight: 700; color: var(--text); }
+  .act-tile input { width: 100%; min-width: 0; border: none; background: transparent; padding: 0; outline: none; font-family: inherit; -webkit-appearance: none; appearance: none; }
+  .act-tile.edit { cursor: text; border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .act-tile.edit:focus-within { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .act-tile.locked { opacity: 0.6; }
+  .act-note { font-size: var(--fs-11); color: var(--muted); margin-top: 6px; }
+  .act-det { font-size: var(--fs-13); color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .act-err { font-size: var(--fs-13); color: var(--negative); margin-top: 4px; }
+  .act-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; font-size: var(--fs-13); color: var(--muted); }
+  .act-edit-f { display: inline-flex; align-items: center; gap: 4px; }
+  .act-edit input { width: 84px; background: var(--wash2); border: 1px solid var(--inborder); border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: var(--fs-15); font-weight: 600; }
   .act-status { font-size:var(--fs-10); font-weight:700; padding:3px 7px; border-radius:6px; }
-  .act-pending { background: rgba(245,158,11,0.15); color:#fbbf24; }
-  .act-done    { background: rgba(16,185,129,0.15); color:#34d399; }
-  .act-error   { background: rgba(239,68,68,0.15);  color:#f87171; }
+  .act-pending { background: rgba(245,158,11,0.15); color:var(--warn); }
+  .act-done    { background: rgba(16,185,129,0.15); color:var(--positive); }
+  .act-error   { background: rgba(239,68,68,0.15);  color:var(--negative); }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="header">
     <div>
-      <h1>VTP Portfolio <span class="ver">v2026.09.09b</span></h1>
-      <div class="sub" id="last-updated">Loading…</div>
+      <h1>My Portfolio</h1>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.23a</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-      <button id="kite-btn" onclick="kiteLogin()" title="Refresh Kite token">🔑</button>
-      <button id="runscreener-btn" onclick="runScreener()" title="Run Screener Sync (Gmail alerts → watchlist)" style="border-color:rgba(59,130,246,0.5);color:var(--accent)">📰</button>
-      <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)">▶</button>
-      <button id="refresh-btn" onclick="loadData()">↻</button>
-      <button id="theme-btn" onclick="toggleTheme()" title="Light / dark theme">☾</button>
-      <button id="settings-btn" onclick="openSettings()">⚙</button>
+      <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
+      <button id="refresh-btn" onclick="loadData()" title="Refresh"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+      <button id="settings-btn" onclick="openSettings()" title="Settings" aria-label="Settings"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
-  </div>
-  <div id="tabs">
-    <div class="tab active" onclick="showTab('dashboard')">Dashboard</div>
-    <div class="tab" onclick="showTab('ps2')">Progress S2</div>
-    <div class="tab" onclick="showTab('ps1')">Progress S1</div>
-    <div class="tab" onclick="showTab('trades')">Actions</div>
-    <div class="tab" onclick="showTab('prospects')">S2 Prospects</div>
-    <div class="tab" onclick="showTab('open')">Open Positions</div>
-    <div class="tab" onclick="showTab('closed')">Closed Positions</div>
-    <div class="tab" onclick="showTab('stale')">Stale</div>
   </div>
   <div id="content">
     <div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>
+  </div>
+  <div id="bnav">
+    <div class="bn active" data-g="home" onclick="showGroup('home')"><span class="ic" data-ic="home"></span>Home</div>
+    <div class="bn" data-g="progress" onclick="showGroup('progress')"><span class="ic" data-ic="trend"></span>Progress</div>
+    <div class="bn" data-g="actions" onclick="showGroup('actions')"><span class="ic" data-ic="zap"></span>Actions<span class="nb" id="nav-badge" style="display:none"></span></div>
+    <div class="bn" data-g="portfolio" onclick="showGroup('portfolio')"><span class="ic" data-ic="case"></span>Portfolio</div>
   </div>
 </div>
 <div id="logmodal" style="display:none;position:fixed;inset:0;background:rgba(3,7,18,0.96);z-index:200;flex-direction:column">
@@ -224,14 +365,30 @@
   </div>
   <pre id="logbody" style="flex:1;overflow:auto;margin:0;padding:14px 16px;font-size:10.5px;line-height:1.7;color:#c9d1d9;white-space:pre-wrap;-webkit-overflow-scrolling:touch"></pre>
 </div>
+<div id="ask">
+  <div id="ask-box">
+    <div id="ask-title"></div>
+    <div id="ask-msg"></div>
+    <button id="ask-ok">OK</button>
+    <button id="ask-cancel">Cancel</button>
+  </div>
+</div>
 <div id="config">
   <div id="config-box">
-    <h3>Settings</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0">Settings</h3>
+      <button id="config-close" onclick="closeSettings()" aria-label="Close">✕</button>
+    </div>
+    <div class="cfg-quick">
+      <button id="kite-btn" onclick="kiteLogin()"><span class="ic" data-ic="key"></span>Kite login</button>
+      <button id="runscreener-btn" onclick="runScreener()"><span class="ic" data-ic="mail"></span>Screener sync</button>
+      <button id="theme-btn" onclick="toggleTheme()"><span class="ic" data-ic="moon"></span>Dark theme</button>
+    </div>
     <p>Web App token — enables Run VTP and action execution from this app.</p>
     <input id="wa-token-input" class="cfg-input" placeholder="Web App token" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
     <button id="save-sid" onclick="saveSettings()">Save & Load</button>
     <details id="cfg-advanced">
-      <summary>Advanced — Sheet ID / Web App URL (only if you're pointing this app at a different sheet or deployment)</summary>
+      <summary>Sheet ID &amp; Web App URL</summary>
       <input id="sid-input" class="cfg-input" placeholder="Spreadsheet ID (from URL)" />
       <input id="wa-url-input" class="cfg-input" placeholder="GAS Web App URL (…/exec)" />
     </details>
@@ -254,12 +411,44 @@ let currentTab = 'dashboard';
 let progressSubTab = 's1';
 let positionsCat = localStorage.getItem('vtp_pos_cat') || 'held';
 
+
+// ── Line icons (inline SVG, inherit text colour) ──────────────────────────────
+const ICON_PATHS = {
+  home:    '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
+  trend:   '<polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/>',
+  zap:     '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  case:    '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M3 13h18"/>',
+  key:     '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M19 4l2 2"/>',
+  mail:    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  moon:    '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  sun:     '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
+  down:    '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',
+  back:    '<path d="M15 18l-6-6 6-6"/>',
+  chev:    '<path d="M9 6l6 6-6 6"/>',
+  down2:   '<path d="M6 9l6 6 6-6"/>',
+  up:      '<path d="M6 15l6-6 6 6"/>',
+  lock:    '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  alert:   '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+  plus:    '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  ban:     '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+  log:     '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h6"/>',
+  edit:    '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  clock:   '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  check:   '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  list:    '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  search:  '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+};
+const ic = (name, extra) => `<svg class="ico${extra ? ' ' + extra : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ''}</svg>`;
+const SPIN = ic('refresh', 'spin');
+document.querySelectorAll('[data-ic]').forEach(e => { e.innerHTML = ic(e.dataset.ic); });
+
 // ── Theme (default light; remembered per device) ──────────────────────────────
 function applyTheme(t) {
   document.body.classList.toggle('light', t === 'light');
   localStorage.setItem('vtp_theme', t);
   const b = document.getElementById('theme-btn');
-  if (b) b.textContent = t === 'light' ? '☾' : '☀';
+  if (b) b.innerHTML = t === 'light' ? '<span class="ic">' + ic('moon') + '</span>Dark theme' : '<span class="ic">' + ic('sun') + '</span>Light theme';
 }
 function toggleTheme() { applyTheme(document.body.classList.contains('light') ? 'dark' : 'light'); }
 applyTheme(localStorage.getItem('vtp_theme') || 'light');
@@ -446,13 +635,7 @@ function loadFromCache() {
     const c = JSON.parse(raw);
     if (!c || !c.state || !c.state.loaded) return false;
     state = c.state;
-    const t = new Date(c.ts);
-    const sameDay = t.toDateString() === new Date().toDateString();
-    document.getElementById('last-updated').textContent =
-      'Cached · ' + (sameDay
-        ? t.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'})
-        : t.toLocaleDateString('en-IN', {day:'2-digit', month:'short'})
-          + ' ' + t.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}));
+    setStamp_(c.ts);
     renderTab(currentTab);
     return true;
   } catch (e) { console.warn('[VTP] cache load failed:', e.message); return false; }
@@ -735,15 +918,14 @@ async function loadData(opts) {
 
     state.loaded = true;
     const nowTs = Date.now();
-    document.getElementById('last-updated').textContent =
-      'Updated ' + new Date(nowTs).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    setStamp_(nowTs);
     saveCache(nowTs);
     renderTab(currentTab);
 
   } catch (e) {
     setContent(`<div class="error-box">Failed to load data.<br><br>${e.message}<br><br>
       Make sure the sheet is public (Share → Anyone with link → Viewer).<br><br>
-      <button onclick="openSettings()"
+      <button onclick="openSettings(true)"
         style="margin-top:10px;padding:8px 16px;background:var(--accent);border:none;border-radius:8px;color:white;font-size:var(--fs-13);cursor:pointer;">
         Change Sheet ID
       </button></div>`);
@@ -755,15 +937,43 @@ async function loadData(opts) {
 const TAB_ORDER = ['dashboard','ps2','ps1','trades','prospects','open','closed','stale'];
 const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Bottom-nav groups → the underlying pages (TAB_ORDER stays the swipe order)
+const NAV_GROUPS = {
+  home:      { tabs: ['dashboard'] },
+  progress:  { tabs: ['ps2', 'ps1'],                         labels: { ps2: 'S2', ps1: 'S1' } },
+  actions:   { tabs: ['trades'] },
+  portfolio: { tabs: ['prospects', 'open', 'closed', 'stale'], labels: { prospects: 'Prospects', open: 'Open', closed: 'Closed', stale: 'Stale' } },
+};
+const groupOf = tab => Object.keys(NAV_GROUPS).find(g => NAV_GROUPS[g].tabs.includes(tab)) || 'home';
+// Remember the last page opened inside each group (per device)
+let lastInGroup = {};
+try { lastInGroup = JSON.parse(localStorage.getItem('vtp_nav_last') || '{}') || {}; } catch (e) {}
+function showGroup(g) {
+  const G = NAV_GROUPS[g]; if (!G) return;
+  const t = G.tabs.includes(lastInGroup[g]) ? lastInGroup[g] : G.tabs[0];
+  if (t === currentTab) { document.getElementById('content').scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  showTab(t);
+}
+// Segmented control shown at the top of multi-page groups (Progress, Portfolio)
+function segHtml_() {
+  const G = NAV_GROUPS[groupOf(currentTab)];
+  if (!G || G.tabs.length < 2) return '';
+  return `<div class="seg">${G.tabs.map(t => `<div class="${t === currentTab ? 'active' : ''}" onclick="showTab('${t}')">${G.labels[t]}</div>`).join('')}</div>`;
+}
+function updateNavBadge_() {
+  const el = document.getElementById('nav-badge'); if (!el) return;
+  const n = (state.actions || []).filter(a => a.status === 'Pending' || String(a.status).startsWith('ERROR')).length;
+  el.textContent = n; el.style.display = n ? '' : 'none';
+}
 function showTab(tab) {
   const from = TAB_ORDER.indexOf(currentTab);
   const to   = TAB_ORDER.indexOf(tab);
   const dir  = (from < 0 || to < 0) ? 0 : Math.sign(to - from);
   currentTab = tab;
-  const els = document.querySelectorAll('.tab');
-  els.forEach((t, i) => t.classList.toggle('active', i === to));
-  // keep the active tab centered in the horizontally-scrollable strip
-  if (els[to]) els[to].scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  const g = groupOf(tab);
+  lastInGroup[g] = tab;
+  try { localStorage.setItem('vtp_nav_last', JSON.stringify(lastInGroup)); } catch (e) {}
+  document.querySelectorAll('#bnav .bn').forEach(b => b.classList.toggle('active', b.dataset.g === g));
   if (state.loaded) renderTabAnimated(tab, dir);
 }
 
@@ -802,6 +1012,7 @@ function initSwipeNav() {
 }
 initSwipeNav();
 function renderTab(tab) {
+  updateNavBadge_();
   if      (tab === 'dashboard') renderDashboard();
   else if (tab === 'ps2')       renderProgressS2();
   else if (tab === 'ps1')       renderProgressS1();
@@ -816,6 +1027,9 @@ function renderTab(tab) {
 // Total PAT card (S1/S2/S0 + last-3-FY breakup) · Total Invested · Cash Balance · Funds · Actions
 // S1/S2 sub-cards navigate to Progress tabs; tapping an FY expands its strategy breakdown
 let dashFY = null;
+let dashFundsOpen = false;
+try { dashFundsOpen = localStorage.getItem('vtp_funds_open') === '1'; } catch (e) {}
+function toggleDashFunds() { dashFundsOpen = !dashFundsOpen; try { localStorage.setItem('vtp_funds_open', dashFundsOpen ? '1' : '0'); } catch (e) {} renderDashboard(); }
 function toggleDashFY(fy) { dashFY = dashFY === fy ? null : fy; renderDashboard(); }
 
 function renderDashboard() {
@@ -843,19 +1057,19 @@ function renderDashboard() {
   let fundsCard = '';
   if (fundsIn > 0) {
     // Flow: input + PAT − holdings + tax provision − cash out = ideal · ideal − actual = charges
-    const fSub = 'background:var(--wash);border-color:var(--inborder);padding:8px 6px;min-width:0';
+    const fSub = 'padding:8px 6px';
     const flow = [
       { l: 'PAT earned',    v: patAll,      c: 'var(--positive)' },
       { l: 'In holdings',   v: investedAll, c: 'var(--negative)' },
       { l: 'Tax provision', v: taxProv,     c: taxProv < 0 ? 'var(--negative)' : 'var(--positive)' },
       { l: 'Cash out',      v: cashOut,     c: 'var(--negative)' },
-      { l: 'Ideal balance', v: idealBal,    c: 'var(--accent)' },
-      { l: 'Actual balance',v: actualBal,   c: 'var(--accent)' },
+      { l: 'Ideal bal.',    v: idealBal,    c: 'var(--accent)' },
+      { l: 'Actual bal.',   v: actualBal,   c: 'var(--accent)' },
     ];
     const fCell = f => `
-      <div class="mini-card" style="${fSub}">
-        <div class="mini-label" style="font-size:var(--fs-9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.l}</div>
-        <div style="font-size:var(--fs-12);font-weight:700;color:${f.c}">${fmtF(Math.abs(f.v))}</div>
+      <div class="hsub" style="${fSub}">
+        <div class="sub-label">${f.l}</div>
+        <div style="font-size:var(--fs-13);font-weight:700;color:${f.c}">${fmtF(Math.abs(f.v))}</div>
       </div>`;
     const fArrow = '<span style="color:var(--muted);font-size:var(--fs-12);font-weight:700;text-align:center">→</span>';
     const fRow = cells => `
@@ -876,7 +1090,7 @@ function renderDashboard() {
     ].filter(([, key]) => strats.some(s => fv(mFor(s), key)));
     const sfColor = (lbl, v) => v < 0 ? 'var(--negative)' : lbl === 'PAT' ? 'var(--positive)' : 'inherit';
     const stratFunds = strats.length ? `
-      <div class="card" style="padding:12px 14px">
+      <div style="margin-top:14px">
         <table style="width:100%;border-collapse:collapse;font-size:var(--fs-12)">
           <tr><td></td>${strats.map(s => `<td style="text-align:right;padding:2px 0 6px">${pill(s)}</td>`).join('')}</tr>
           ${sfRows.map(([lbl, key]) => `
@@ -889,20 +1103,29 @@ function renderDashboard() {
       </div>` : '';
 
     fundsCard = `
-      <div class="sec-head" style="margin-top:14px">Funds</div>
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-          <div class="mini-label">Funds Input</div>
-          <div style="font-size:var(--fs-10);color:var(--muted)">booked ${fmtF(fv(fb.byStrategy, 'Booked Funds'))} + floating ${fmtF(fv(fb.byStrategy, 'Floating Funds'))}</div>
+        <div class="hero-top">
+          <div class="hero-label">Funds Input</div>
+          <div class="hero-ctx">booked ${fmtC(fv(fb.byStrategy, 'Booked Funds'))} + floating ${fmtC(fv(fb.byStrategy, 'Floating Funds'))}</div>
         </div>
-        <div class="mini-value" style="font-size:var(--fs-26);margin:2px 0 10px">${fmtF(fundsIn)}</div>
-        ${flowCards}
-        <div style="display:flex;justify-content:space-between;font-size:var(--fs-10);color:var(--muted);margin-top:8px">
-          <span>Charges till date: <b style="color:var(--warn)">${fmtF(idealBal - actualBal)}</b> (ideal − actual)</span>
+        <div class="hero-val" style="margin-bottom:10px">${fmt(fundsIn)}</div>
+        <div class="grid-3" style="margin-bottom:0">
+          <div class="hsub"><div class="sub-label">Ideal bal.</div><div class="sub-val" style="color:var(--accent)">${fmtC(idealBal)}</div></div>
+          <div class="hsub"><div class="sub-label">Actual bal.</div><div class="sub-val" style="color:var(--accent)">${fmtC(actualBal)}</div></div>
+          <div class="hsub"><div class="sub-label">Charges</div><div class="sub-val" style="color:var(--warn)">${fmtC(idealBal - actualBal)}</div></div>
         </div>
-      </div>
-      ${stratFunds}`;
+        <div class="more-toggle ${dashFundsOpen ? 'open' : ''}" onclick="toggleDashFunds()"><span>${dashFundsOpen ? 'Hide details' : 'Details'}</span><span class="chev">${ic('chev')}</span></div>
+        ${dashFundsOpen ? flowCards + stratFunds : ''}
+      </div>`;
   }
+
+  // Actions waiting → compact banner at the very top (tap → Actions tab)
+  const alertBanner = (pendingActs.length || errorActs.length) ? `
+    <div class="alert-banner ${errorActs.length ? 'err' : 'warn'}" onclick="showTab('trades')">
+      ${ic(errorActs.length ? 'alert' : 'zap')}
+      <span class="grow">${pendingActs.length ? pendingActs.length + ' action' + (pendingActs.length > 1 ? 's' : '') + ' waiting' : ''}${pendingActs.length && errorActs.length ? ' · ' : ''}${errorActs.length ? errorActs.length + ' error' + (errorActs.length > 1 ? 's' : '') : ''}</span>
+      ${ic('chev')}
+    </div>` : '';
 
   // Total PAT breakups — last three FYs + all-time per strategy
   const last3 = fys.slice(0, 3);
@@ -937,71 +1160,60 @@ function renderDashboard() {
   })();
 
   setContent(`
+    ${alertBanner}
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="mini-label">Total PAT</div>
-        <div style="font-size:var(--fs-10);color:var(--muted)">all time</div>
+      <div class="hero-top">
+        <div class="hero-label">Total PAT</div>
+        <div class="hero-ctx">all time</div>
       </div>
-      <div class="mini-value ${cls(totalPAT)}" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(totalPAT)}</div>
+      <div class="hero-val ${cls(totalPAT)}">${fmt(totalPAT)}</div>
       <div class="grid-3" style="margin-bottom:0">
         ${['S1','S2','S0'].map(s => { const p = stratPat(s);
           const nav = s === 'S1' ? 'ps1' : s === 'S2' ? 'ps2' : '';
           return `
-        <div class="mini-card" style="${subCard}${nav ? ';cursor:pointer' : ''}" ${nav ? `onclick="showTab('${nav}')"` : ''}>
-          <div style="margin-bottom:4px">${pill(s)}${nav ? ' <span style="font-size:var(--fs-9);color:var(--muted)">›</span>' : ''}</div>
-          <div class="mini-value ${cls(p)}" style="font-size:var(--fs-14)">${fmt(p)}</div>
+        <div class="hsub" ${nav ? `style="cursor:pointer" onclick="showTab('${nav}')"` : ''}>
+          <div style="margin-bottom:4px">${pill(s)}${nav ? ' <span style="color:var(--muted)">›</span>' : ''}</div>
+          <div class="sub-val ${cls(p)}">${fmt(p)}</div>
         </div>`; }).join('')}
       </div>
       ${last3.length ? `
       <div class="grid-3" style="margin:8px 0 0">
         ${last3.map(fy => { const a = fyAgg(fy); const active = fy === dashFY; return `
-        <div class="mini-card" style="${active ? 'background:rgba(59,130,246,0.08);border-color:var(--accent)' : subCard};cursor:pointer" onclick="toggleDashFY('${fy}')">
-          <div class="mini-label" ${active ? 'style="color:var(--accent)"' : ''}>${fy}</div>
-          <div class="mini-value ${cls(a.pat)}" style="font-size:var(--fs-14)">${fmt(a.pat)}</div>
-          <div style="font-size:var(--fs-10);color:var(--muted);margin-top:3px">${a.lots} lots</div>
+        <div class="hsub" style="cursor:pointer;${active ? 'background:color-mix(in srgb, var(--accent) 8%, transparent);border-color:var(--accent)' : ''}" onclick="toggleDashFY('${fy}')">
+          <div class="sub-label" ${active ? 'style="color:var(--accent)"' : ''}>${fy}</div>
+          <div class="sub-val ${cls(a.pat)}">${fmt(a.pat)}</div>
+          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:3px">${a.lots} lots</div>
         </div>`; }).join('')}
       </div>` : ''}
       ${fyBreakdown}
     </div>
     <div class="card">
-      <div class="card-title">Cash Balance</div>
+      <div class="hero-top" style="margin-bottom:2px"><div class="hero-label">Cash Balance</div></div>
       ${state.funds && state.funds.live != null ? `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
-          <div class="big-number ${cls(state.funds.live)}" style="font-size:var(--fs-26)">${fmt(state.funds.live)}</div>
-          <div class="big-label" style="font-size:var(--fs-10)">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
+          <div class="hero-val ${cls(state.funds.live)}" style="margin:0">${fmt(state.funds.live)}</div>
+          <div class="big-label">Kite live${cash ? ' · sheet ' + fmt(cash) + ' · Δ ' + fmtN(state.funds.live - cash) : ''}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0">
-          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">↻ Refresh</button>
-          <button class="mini-btn" style="color:var(--accent)" onclick="syncBalance()">↓ Write to sheet</button>
+          <button id="bal-refresh" class="mini-btn" style="color:var(--accent2)" onclick="refreshBalance()">${ic('refresh')} Refresh</button>
+          <button class="mini-btn" style="color:var(--accent)" onclick="syncBalance()">${ic('down')} Write to sheet</button>
         </div>
       </div>
       ` : `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <div>
-          <div class="big-number ${cls(cash)}" style="font-size:var(--fs-26)">${fmt(cash)}</div>
-          <div class="big-label" style="font-size:var(--fs-10)">from sheet — Kite live n/a</div>
+          <div class="hero-val ${cls(cash)}" style="margin:0">${fmt(cash)}</div>
+          <div class="big-label">from sheet — Kite live n/a</div>
         </div>
-        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2);flex-shrink:0" onclick="refreshBalance()">↻ Fetch Balance</button>` : ''}
+        ${!localWB ? `<button id="bal-refresh" class="mini-btn" style="color:var(--accent2);flex-shrink:0" onclick="refreshBalance()">${ic('refresh')} Fetch Balance</button>` : ''}
       </div>
       `}
     </div>
 
     ${fundsCard}
 
-    ${(pendingActs.length || errorActs.length) ? `
-    <div class="card" style="border-color:${errorActs.length?'rgba(239,68,68,0.4)':'rgba(245,158,11,0.4)'}">
-      <div class="card-title">Actions Waiting</div>
-      ${state.actions.filter(a => a.status === 'Pending' || a.status.startsWith('ERROR')).slice(0,4).map(a => `
-        <div class="trade-row">
-          <span class="act-status ${a.status.startsWith('ERROR')?'act-error':'act-pending'}">${a.status.startsWith('ERROR')?'ERR':'PEND'}</span>
-          <div style="flex:1">
-            <div class="trade-sym">${a.symbol}</div>
-            <div class="trade-meta">${a.action}</div>
-          </div>
-        </div>`).join('')}
-      <div style="font-size:var(--fs-11);color:var(--muted);margin-top:8px;cursor:pointer" onclick="showTab('trades')">View all →</div>
-    </div>` : ''}
+
   `);
 }
 
@@ -1019,7 +1231,7 @@ const POS_CATS = [
 ];
 
 function setPosCat(id) {
-  positionsCat = id;
+  positionsCat = id === 'wl' || id === 'oob' ? 'wl' : 'hold';
   localStorage.setItem('vtp_pos_cat', id);
   renderPositions();
 }
@@ -1036,8 +1248,10 @@ function togglePosStrat(s) {
   renderPositions();
 }
 function toggleClosedStrat(s) {
-  if (s === 'all') closedStratSet.clear();
-  else closedStratSet.has(s) ? closedStratSet.delete(s) : closedStratSet.add(s);
+  // single-select via the hero sub-cards: tap a strategy to filter, tap again for all
+  const was = closedStratSet.has(s);
+  closedStratSet.clear();
+  if (s !== 'all' && !was) closedStratSet.add(s);
   renderClosed(currentClosedFY);
 }
 function stratChips(sel, fnName, rows) {
@@ -1068,100 +1282,144 @@ function th(label, key, cur, fnName, align) {
   return `<th style="cursor:pointer;user-select:none;${align ? 'text-align:' + align : ''}" onclick="${fnName}('${key}')">${label}${arrow}</th>`;
 }
 function setPosSort(key)    { posSort    = posSort.key    === key ? { key, dir: -posSort.dir }    : { key, dir: -1 }; renderPositions(); }
+let closedPL = 'all';   // 'all' | 'win' | 'loss' — tap the Wins / Loss cards
+function setClosedPL(v) { closedPL = (v === 'all' || closedPL === v) ? 'all' : v; renderClosed(currentClosedFY); }
 function setClosedSort(key) { closedSort = closedSort.key === key ? { key, dir: -closedSort.dir } : { key, dir: -1 }; renderClosed(currentClosedFY); }
 
 const dateVal = s => { const d = parsePortDate(s); return d ? d.getTime() : 0; };
 
+// Sort chips (tap again to flip direction) — replaces sortable table headers on list pages
+function sortBar(opts, cur, fnName) {
+  return `<div class="sort-bar"><span class="sort-lbl">Sort</span>${opts.map(([k, l]) =>
+    `<span class="sort-chip ${cur.key === k ? 'on' : ''}" onclick="${fnName}('${k}')">${l}${cur.key === k ? (cur.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`).join('')}</div>`;
+}
+// ── Positions: two top views — Holdings (S1/S2/S0) and Watchlist (alerted / GTT placed / OOB)
+// S1 gets its own sub-filters (quarter × Kite); S2/S0 have none.
+const posView = () => positionsCat === 'wl' ? 'wl' : 'hold';
+let posStrat = (localStorage.getItem('vtp_pos_strat1') || '');            // '' | 'S1' | 'S2' | 'S0'
+let s1Qtr  = 'all';     // 'all' | 'cur' | 'prior'
+let s1Kite = 'all';     // 'all' | 'kite' | 'nik'
+let wlSub  = '';        // '' | 'alerted' | 'gtt_placed' | 'out_of_budget'
+function setPosStrat(st) { posStrat = posStrat === st ? '' : st; s1Qtr = s1Kite = 'all'; try { localStorage.setItem('vtp_pos_strat1', posStrat); } catch (e) {} renderPositions(); }
+function setS1Qtr(v)  { s1Qtr  = s1Qtr  === v ? 'all' : v; renderPositions(); }
+function setS1Kite(v) { s1Kite = s1Kite === v ? 'all' : v; renderPositions(); }
+function setWlSub(v)  { wlSub  = wlSub  === v ? '' : v; renderPositions(); }
+// Quarter of a held S1 lot: status says it for Kite lots; not-in-Kite lots go by buy date
+function s1QtrOf(r) {
+  if (r.status === 'in_holdings')   return 'cur';
+  if (r.status === 'prior_quarter') return 'prior';
+  const d = dateVal(r.buyDate), now = new Date();
+  const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).getTime();
+  return d && d >= qStart ? 'cur' : 'prior';
+}
 function renderPositions() {
-  const cat     = POS_CATS.find(c => c.id === positionsCat) || POS_CATS[0];
-  const catRows = state.repo.filter(cat.test);
-  const rows    = catRows.filter(r => stratMatch(posStratSet, r));
-  const isWatch = cat.id === 'wl' || cat.id === 'oob';
+  const view  = posView();
+  const chips = `<div class="sub-tabs">
+      <div class="sub-tab ${view === 'hold' ? 'active' : ''}" onclick="setPosCat('hold')">Holdings</div>
+      <div class="sub-tab ${view === 'wl' ? 'active' : ''}" onclick="setPosCat('wl')">Watchlist</div>
+    </div>`;
+  const subCard = (on, anyOn, onclick, top, n, val) => `
+      <div class="hsub strat-sub ${on ? 'on' : ''} ${anyOn && !on ? 'off' : ''}" onclick="${onclick}">
+        <div class="sub-label" style="display:flex;justify-content:space-between;align-items:center;gap:4px">${top}<span class="sub-n">${n}</span></div>
+        <div class="sub-val" style="font-size:var(--fs-13)">${fmt(val)}</div></div>`;
+  const miniChip = (on, onclick, label, n) => `<div class="sub-tab ${on ? 'active' : ''}" onclick="${onclick}">${label} <span style="opacity:0.6">${n}</span></div>`;
 
-  const chips = `<div class="sub-tabs">${POS_CATS.map(c => {
-    const n = state.repo.filter(c.test).length;
-    return `<div class="sub-tab ${c.id===positionsCat?'active':''}" onclick="setPosCat('${c.id}')">${c.label} <span style="opacity:0.6">${n}</span></div>`;
-  }).join('')}</div>` + stratChips(posStratSet, 'togglePosStrat', catRows);
+  let rows, hero, isWatch = view === 'wl';
+  if (!isWatch) {
+    const all  = state.repo.filter(r => HELD_STATUSES.has(r.status));
+    const valOf = r => (r.value || 0) + (r.charge || 0);
+    let base = posStrat ? all.filter(r => r.strategy === posStrat) : all;
+    let s1Filters = '';
+    if (posStrat === 'S1') {
+      const kiteOf = r => r.status === 'not_in_kite' ? 'nik' : 'kite';
+      const qRows = base.filter(r => s1Kite === 'all' || kiteOf(r) === s1Kite);
+      const kRows = base.filter(r => s1Qtr === 'all' || s1QtrOf(r) === s1Qtr);
+      s1Filters = `<div class="sub-filters">
+          <div class="sub-tabs chip-row mini-chips" style="margin-bottom:0">
+            ${miniChip(s1Qtr === 'cur',   "setS1Qtr('cur')",   'Curr', qRows.filter(r => s1QtrOf(r) === 'cur').length)}
+            ${miniChip(s1Qtr === 'prior', "setS1Qtr('prior')", 'Prior', qRows.filter(r => s1QtrOf(r) === 'prior').length)}
+            <span class="chip-sep"></span>
+            ${miniChip(s1Kite === 'kite', "setS1Kite('kite')", 'Kite',      kRows.filter(r => kiteOf(r) === 'kite').length)}
+            ${miniChip(s1Kite === 'nik',  "setS1Kite('nik')",  'No Kite',  kRows.filter(r => kiteOf(r) === 'nik').length)}
+          </div>
+        </div>`;
+      base = base.filter(r => (s1Qtr === 'all' || s1QtrOf(r) === s1Qtr) && (s1Kite === 'all' || kiteOf(r) === s1Kite));
+    }
+    rows = base;
+    hero = `
+    <div class="card">
+      <div class="hero-top"><div class="hero-label">${posStrat ? posStrat + ' holdings' : 'Holdings'}</div><div class="hero-ctx">${rows.length} lots</div></div>
+      <div class="hero-val">${fmt(rows.reduce((a, r) => a + valOf(r), 0))}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        ${['S1', 'S2', 'S0'].map(st => { const rs = all.filter(r => r.strategy === st);
+          return subCard(posStrat === st, !!posStrat, `setPosStrat('${st}')`, pill(st), rs.length, rs.reduce((a, r) => a + valOf(r), 0)); }).join('')}
+      </div>
+      ${s1Filters}
+    </div>`;
+  } else {
+    const WL = ['alerted', 'gtt_placed', 'out_of_budget'];
+    const all = state.repo.filter(r => WL.includes(r.status));
+    const valOf = r => (r.idealQty || 0) * (r.valuePrice || 0);
+    rows = wlSub ? all.filter(r => r.status === wlSub) : all;
+    const lbl = { alerted: 'Alerted', gtt_placed: 'GTT set', out_of_budget: 'OOB' };
+    hero = `
+    <div class="card">
+      <div class="hero-top"><div class="hero-label">${wlSub ? 'Watchlist · ' + lbl[wlSub] : 'Watchlist'}</div><div class="hero-ctx">${rows.length} stocks · planned</div></div>
+      <div class="hero-val">${fmt(rows.reduce((a, r) => a + valOf(r), 0))}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        ${WL.map(st => { const rs = all.filter(r => r.status === st);
+          return subCard(wlSub === st, !!wlSub, `setWlSub('${st}')`, `<span>${lbl[st]}</span>`, rs.length, rs.reduce((a, r) => a + valOf(r), 0)); }).join('')}
+      </div>
+    </div>`;
+  }
 
   if (rows.length === 0) {
-    setContent(`${chips}<div class="card" style="text-align:center;padding:32px;color:var(--muted)">No rows in this category.</div>`);
+    setContent(`${chips}${hero}<div class="card" style="text-align:center;padding:32px;color:var(--muted)">No rows here.</div>`);
     return;
   }
 
+  // one-line table: sortable header cells, strategy as a coloured dot
+  const hd = (label, key, sk, cls) => `<span class="${cls || ''} ${sk.key === key ? 'on' : ''}" onclick="setPosSort('${key}')">${label}${sk.key === key ? (sk.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`;
+  const n0 = v => v ? Math.round(Number(v)).toLocaleString('en-IN') : '—';
+  const dot = st => `<i class="sdot sd-${(st || '').toLowerCase()}"></i>`;
   if (isWatch) {
-    // Watchlist / OOB — show trigger & value price
     const WATCH_KEYS = ['ticker','trigger','valuePrice','idealQty'];
     const sk  = WATCH_KEYS.includes(posSort.key) ? posSort : { key: 'ticker', dir: 1 };
     const sorted = sortRows(rows, sk.key, sk.dir, { ticker: r => r.ticker });
-    setContent(`${chips}
-      <div class="sec-head">${cat.label} <span class="badge">${sorted.length}</span></div>
-      <div class="card" style="padding:0;overflow:hidden">
-        <table class="tbl">
-          <thead><tr>
-            ${th('Scrip','ticker',sk,'setPosSort')}
-            ${th('Trigger','trigger',sk,'setPosSort')}
-            ${th('Value Px','valuePrice',sk,'setPosSort')}
-            ${th('Qty · ~Lot','idealQty',sk,'setPosSort','right')}
-          </tr></thead>
-          <tbody>
-            ${sorted.map(r => `
-              <tr>
-                <td><div style="font-weight:600">${r.ticker}</div><div style="font-size:var(--fs-10);margin-top:1px">${statusPill(r.status)} <span style="color:var(--muted)">${r.ref}</span></div></td>
-                <td>${r.trigger ? '₹' + r.trigger.toLocaleString('en-IN') : '—'}</td>
-                <td>${r.valuePrice ? '₹' + r.valuePrice.toLocaleString('en-IN') : '—'}</td>
-                <td style="text-align:right">${r.idealQty || '—'}${r.idealQty && r.valuePrice ? `<div style="font-size:var(--fs-10);color:var(--muted)">${fmt(r.idealQty * r.valuePrice)}</div>` : ''}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+    setContent(`${chips}${hero}
+      <div class="card list-card">
+        <div class="lr lr-h lr-wl">${hd('Scrip','ticker',sk)}${hd('Buy at','valuePrice',sk,'r')}${hd('Qty','idealQty',sk,'r')}<span class="r">Amt</span></div>
+        ${sorted.map(r => `
+        <div class="lr lr-wl">
+          <span class="lr-t">${dot(r.strategy)}${r.ticker}</span>
+          <span class="r">${n0(r.valuePrice)}</span>
+          <span class="r m">${r.idealQty || '—'}</span>
+          <span class="r b">${r.idealQty && r.valuePrice ? fmtF(r.idealQty * r.valuePrice) : '—'}</span>
+        </div>`).join('')}
       </div>`);
     return;
   }
-
-  // Held lots — qty / price / value
   const HELD_KEYS = ['ticker','buyDate','qty','price','value'];
   const sk  = HELD_KEYS.includes(posSort.key) ? posSort : { key: 'value', dir: -1 };
   const sorted = sortRows(rows, sk.key, sk.dir, { ticker: r => r.ticker, buyDate: r => dateVal(r.buyDate) });
-  const total  = sorted.reduce((a,r) => a + r.value + r.charge, 0);
-  setContent(`${chips}
-    <div class="sec-head">${cat.label} <span class="badge">${sorted.length}</span></div>
-    <div class="card" style="padding:12px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between">
-        <div><div style="font-size:var(--fs-10);color:var(--muted)">Total Value</div><div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(total)}</div></div>
-        <div style="text-align:right"><div style="font-size:var(--fs-10);color:var(--muted)">Lots</div><div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${sorted.length}</div></div>
-      </div>
-    </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr>
-          ${th('Scrip','ticker',sk,'setPosSort')}
-          ${th('Date','buyDate',sk,'setPosSort')}
-          ${th('Qty','qty',sk,'setPosSort')}
-          ${th('Price','price',sk,'setPosSort')}
-          ${th('Value','value',sk,'setPosSort','right')}
-        </tr></thead>
-        <tbody>
-          ${sorted.map(r => `
-            <tr>
-              <td>
-                <div style="font-weight:600">${r.ticker}</div>
-                <div style="font-size:var(--fs-10);margin-top:1px">${pill(r.strategy)} ${statusPill(r.status)}</div>
-              </td>
-              <td style="font-size:var(--fs-11);color:var(--muted)">${r.buyDate||''}</td>
-              <td>${r.qty || '—'}</td>
-              <td>${r.price ? '₹' + r.price.toLocaleString('en-IN',{maximumFractionDigits:1}) : '—'}</td>
-              <td style="text-align:right;font-weight:600">${fmt(r.value)}${(() => {
-                // 'no GTT' warning only where one is expected — S0 (Smallcase) and
-                // not_in_kite (other demat) carry no sell GTT by design
-                const expects = r.status === 'in_holdings' || r.status === 'prior_quarter' ||
-                                (r.status === 'other_strategy' && r.strategy === 'S2');
-                return r.sellGtt ? `<div style="font-size:var(--fs-9);color:var(--muted)">GTT ✓</div>`
-                     : expects   ? `<div style="font-size:var(--fs-9);color:var(--warn)">no GTT</div>` : '';
-              })()}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+  const shortDate = d => { const m = String(d || '').match(/^(\d{2})\.(\d{2})\.(\d{2})(\d{2})$/); return m ? m[1] + '.' + m[2] + '.' + m[4] : (d || ''); };
+  setContent(`${chips}${hero}
+    <div class="card list-card">
+      <div class="lr lr-h lr-hold">${hd('Scrip','ticker',sk)}${hd('Date','buyDate',sk)}${hd('Qty','qty',sk,'r')}${hd('Avg','price',sk,'r')}${hd('Value','value',sk,'r')}</div>
+      ${sorted.map(r => {
+        // amber mark only where a sell GTT is expected but missing — S0 (Smallcase)
+        // and not_in_kite (other demat) carry no sell GTT by design
+        const expects = r.status === 'in_holdings' || r.status === 'prior_quarter' ||
+                        (r.status === 'other_strategy' && r.strategy === 'S2');
+        const noGtt = !r.sellGtt && expects;
+        return `
+      <div class="lr lr-hold">
+        <span class="lr-t">${dot(r.strategy)}${r.ticker}${noGtt ? `<b class="nogtt" title="No sell GTT">!</b>` : ''}</span>
+        <span class="m sm">${shortDate(r.buyDate)}</span>
+        <span class="r m">${r.qty || '—'}</span>
+        <span class="r">${n0(r.price)}</span>
+        <span class="r b">${fmtF(r.value)}</span>
+      </div>`; }).join('')}
     </div>
   `);
 }
@@ -1175,7 +1433,7 @@ function renderProgressS1() {
   if (lots.length === 0 && book.length === 0) {
     setContent(`
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
-        <div style="font-size:var(--fs-32);margin-bottom:8px">📋</div>
+        <div class="empty-ico" style="margin-bottom:8px">${ic('list')}</div>
         <div>Progress_S1 tab not found in this sheet yet.</div>
       </div>`);
     return;
@@ -1191,23 +1449,24 @@ function renderProgressS1() {
   const s1Total = s1Sum.reduce((a, r) => a + r.pat, 0);
   const s1FYs   = [...new Set(s1Sum.map(r => r.fy))].sort().reverse();
   const p1Sub = 'background:var(--wash);border-color:var(--inborder)';
+  const syncBtn = !localWB ? `<span style="cursor:pointer;color:var(--accent2);margin-left:8px" title="Sync bookings" onclick="syncProgress()">${ic('refresh')}</span>` : '';
   const patCard = s1Sum.length ? `
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="mini-label">S1 PAT Earned</div>
-        <div style="font-size:var(--fs-10);color:var(--muted)">${s1Sum.reduce((a,r) => a + r.lots, 0)} closed lots · all time</div>
+      <div class="hero-top">
+        <div class="hero-label">S1 PAT Earned</div>
+        <div class="hero-ctx" style="display:flex;align-items:center">${s1Sum.reduce((a,r) => a + r.lots, 0)} closed lots · all time${syncBtn}</div>
       </div>
-      <div class="mini-value ${cls(s1Total)}" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(s1Total)}</div>
+      <div class="hero-val ${cls(s1Total)}">${fmt(s1Total)}</div>
       <div class="grid-3" style="margin-bottom:0">
         ${s1FYs.map(fy => {
           const rows = s1Sum.filter(r => r.fy === fy);
           const pat  = rows.reduce((a,r) => a + r.pat, 0);
           const lc   = rows.reduce((a,r) => a + r.lots, 0);
           return `
-        <div class="mini-card" style="${p1Sub}">
-          <div class="mini-label">${fy}</div>
-          <div class="mini-value ${cls(pat)}" style="font-size:var(--fs-14)">${fmt(pat)}</div>
-          <div style="font-size:var(--fs-10);color:var(--muted);margin-top:3px">${lc} lots</div>
+        <div class="hsub">
+          <div class="sub-label">${fy}</div>
+          <div class="sub-val ${cls(pat)}">${fmt(pat)}</div>
+          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:3px">${lc} lots</div>
         </div>`;
         }).join('')}
       </div>
@@ -1248,24 +1507,31 @@ function renderProgressS1() {
   }));
 
   const p1Cell = (l, v, c) => `
-      <div class="mini-card" style="${p1Sub};padding:8px 6px;min-width:0">
-        <div class="mini-label" style="font-size:var(--fs-9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</div>
-        <div style="font-size:var(--fs-12);font-weight:700;color:${c || 'inherit'}">${v}</div>
+      <div class="hsub" style="padding:8px 6px">
+        <div class="sub-label">${l}</div>
+        <div style="font-size:var(--fs-13);font-weight:700;color:${c || 'inherit'}">${v}</div>
       </div>`;
   const p1Arrow = '<span style="color:var(--muted);font-size:var(--fs-12);font-weight:700;text-align:center">→</span>';
   const fundsCard = `
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="mini-label">S1 Invested</div>
-        <div style="font-size:var(--fs-10);color:var(--muted)">booked run-rate · ${lotRows.filter(r => r.inv).length} × ₹10k</div>
+      <div class="hero-top">
+        <div class="hero-label">S1 Invested</div>
+        <div class="hero-ctx">booked run-rate · ${lotRows.filter(r => r.inv).length} × ₹10k</div>
       </div>
-      <div class="mini-value" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(invTotal)}</div>
+      <div class="hero-val">${fmt(invTotal)}</div>
       <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:4px;align-items:center">
         ${p1Cell('Floating', fmt(floatS1))}${p1Arrow}${p1Cell('Profit booked', fmt(bookedAmt), 'var(--positive)')}${p1Arrow}${p1Cell('Recovered', recovPct + '%', 'var(--accent)')}
       </div>
-      <div style="font-size:var(--fs-10);color:var(--muted);margin-top:8px">
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div><span class="pos" style="font-size:var(--fs-20);font-weight:700">${bookedSlots}</span><span style="color:var(--muted);font-size:var(--fs-13)"> / ${fundedSlots} bookings done</span></div>
+          <div style="font-size:var(--fs-13);color:var(--muted);font-weight:600">${pct}%</div>
+        </div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="hero-foot">
         Profit booked = ${bookedSlots} × ₹1,000 · recovered vs invested
-        ${ysBookedS1 && Math.round(ysBookedS1) !== Math.round(invTotal) ? `<br><span style="color:#fbbf24">⚠ Yearly Summary Booked Funds differs: ${fmt(ysBookedS1)}</span>` : ''}
+        ${ysBookedS1 && Math.round(ysBookedS1) !== Math.round(invTotal) ? `<br><span style="color:var(--warn)">⚠ Yearly Summary Booked Funds differs: ${fmt(ysBookedS1)}</span>` : ''}
         ${nextSplit ? `<br>Next split: #${nextSplit.num} ${nextSplit.month} → ${nextSplit.eta}` : ''}
         ${nextFlip ? `<br>Next flip: #${nextFlip.num} ${nextFlip.month} → ${nextFlip.m}` : ''}
       </div>
@@ -1307,20 +1573,9 @@ function renderProgressS1() {
 
   const now = new Date();
   setContent(`
-    <div class="sec-head">Progress S1
-      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent2);font-size:var(--fs-16);line-height:1" title="Sync bookings" onclick="syncProgress()">↻</span>` : ''}
-        <span class="badge" style="cursor:pointer;font-size:var(--fs-16);line-height:1" title="Back to Dashboard" onclick="showTab('dashboard')">←</span>
-      </span></div>
     ${patCard}
     ${fundsCard}
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div><span class="pos" style="font-size:var(--fs-20);font-weight:700">${bookedSlots}</span><span style="color:var(--muted);font-size:var(--fs-12)"> / ${fundedSlots} bookings done · funded lots</span></div>
-        <div style="font-size:var(--fs-12);color:var(--muted)">${pct}%</div>
-      </div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
-    </div>
+    <div class="sec-head" style="margin-top:14px">Monthly bookings</div>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
       <table class="tbl">
@@ -1353,7 +1608,7 @@ async function submitEmi() {
   const d = document.getElementById('emi-date').value;
   if (!t) { alert('Enter the total EMI amount.'); return; }
   const i = p ? Math.round((t - p) * 100) / 100 : 0;
-  if (!confirm('Record EMI ₹' + t + (p ? ' (principal ₹' + p + ' + interest ₹' + i + ')' : '') + (d ? ' dated ' + d : '') + '?')) return;
+  if (!(await askConfirm('Record EMI ₹' + t + (p ? ' (principal ₹' + p + ' + interest ₹' + i + ')' : '') + (d ? ' dated ' + d : '') + '?'))) return;
   try {
     const j = await waPost({ fn: 'add_emi', total: t, principal: p || null, interest: i || null, date: d || null });
     alert('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
@@ -1366,26 +1621,24 @@ async function submitEmi() {
   }
 }
 function emiFormHtml() {
-  if (localWB) return '';
-  if (!emiFormOpen) return `<div class="card" style="padding:10px 14px;cursor:pointer;color:var(--accent);display:flex;justify-content:space-between;align-items:center" onclick="toggleEmiForm()">
-    <span>＋ Add this month's EMI</span>
-    <span class="badge" style="cursor:pointer;font-size:var(--fs-16);line-height:1;color:var(--text)" title="Back to Dashboard" onclick="event.stopPropagation();showTab('dashboard')">←</span>
-  </div>`;
+  if (localWB || !emiFormOpen) return '';
   const today = new Date().toISOString().substring(0, 10);
-  return `<div class="card" style="overflow:hidden">
-    <div class="card-title">Record EMI</div>
-    <input id="emi-date" type="date" value="${today}" class="inp"/>
-    <input id="emi-total" type="number" inputmode="decimal" placeholder="Total EMI (e.g. 16986)" class="inp"/>
-    <input id="emi-principal" type="number" inputmode="decimal" placeholder="Principal portion (optional — interest auto)" class="inp" style="margin-bottom:10px"/>
+  const tile = (lbl, inp) => `<label class="hsub emi-tile"><div class="sub-label">${lbl}</div>${inp}</label>`;
+  return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div class="emi-grid">
+      ${tile('Date', `<input id="emi-date" type="date" value="${today}"/>`)}
+      ${tile('Total EMI', `<input id="emi-total" type="number" inputmode="decimal" placeholder="16986"/>`)}
+      ${tile('Principal', `<input id="emi-principal" type="number" inputmode="decimal" placeholder="optional"/>`)}
+    </div>
     <div style="display:flex;gap:8px">
       <button onclick="submitEmi()" style="flex:1;background:var(--accent);border:none;border-radius:8px;padding:11px;color:white;font-size:var(--fs-13);font-weight:600;cursor:pointer">Save EMI</button>
       <button onclick="toggleEmiForm()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 16px;color:var(--muted);font-size:var(--fs-13);cursor:pointer">Cancel</button>
     </div>
+    <div class="hero-foot" style="margin-top:6px">Interest is worked out automatically when principal is filled.</div>
   </div>`;
 }
 
 function renderProgressS2() {
-  const subTabsHtml = emiFormHtml();
   const loan    = loanAmount();
   const emiPaid = Math.abs((state.fundBlock.s2||{})['Cash Out'] || 0);
   const s2Pat   = (state.fundBlock.s2||{})['PAT'] || 0;
@@ -1406,6 +1659,17 @@ function renderProgressS2() {
   const pGross    = (() => { const r=computeXIRR(cfGross);    return r!==null ? r*100 : null; })();
   const pInterest = (() => { const r=cfInterest?computeXIRR(cfInterest):null; return r!==null ? r*100 : null; })();
 
+
+  // Target / Actual / Surplus card (current month + cumulative)
+  const tgtCard = (title, T, A, diff, good, sub) => `
+    <div class="card" style="border-color:${good ? 'color-mix(in srgb, var(--positive) 45%, transparent)' : 'color-mix(in srgb, var(--negative) 40%, transparent)'}">
+      <div class="hero-top" style="margin-bottom:10px"><div class="hero-label" style="color:${good ? 'var(--positive)' : 'var(--negative)'}">${title}</div></div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label">Target</div><div class="sub-val">${fmt(T)}</div></div>
+        <div class="hsub"><div class="sub-label">Actual</div><div class="sub-val" style="color:${A > 0 ? (good ? 'var(--positive)' : 'var(--negative)') : 'var(--muted)'}">${A > 0 ? fmt(A) : '—'}</div></div>
+        <div class="hsub"><div class="sub-label">${good ? 'Surplus' : 'Shortfall'}</div><div class="sub-val" style="color:${good ? 'var(--positive)' : 'var(--negative)'}">${fmt(Math.abs(diff))}</div>${sub ? `<div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">${sub}</div>` : ''}</div>
+      </div>
+    </div>`;
   const now = new Date();
   const cur = (state.progress2||[]).find(r => {
     const d = parseMonYY(r.month);   // "Jul'26" — explicit parse; new Date("Jul 2026") fails in Safari
@@ -1414,14 +1678,7 @@ function renderProgressS2() {
   const curHtml = cur ? (() => {
     const diff = cur.actual - cur.target;
     const good = diff >= 0;
-    return `<div style="background:${good?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};border:1.5px solid ${good?'rgba(16,185,129,0.4)':'rgba(239,68,68,0.3)'};border-radius:12px;padding:14px 16px;margin-bottom:8px">
-      <div style="font-size:var(--fs-10);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:${good?'var(--positive)':'var(--negative)'};margin-bottom:8px">${cur.month} — Current Month</div>
-      <div class="grid-3">
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">Target</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px">${fmt(cur.target)}</div></div>
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">Actual</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px;color:${cur.actual>0?(good?'var(--positive)':'var(--negative)'):'var(--muted)'}">${cur.actual>0?fmt(cur.actual):'—'}</div></div>
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">${good?'Surplus':'Shortfall'}</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px;color:${good?'var(--positive)':'var(--negative)'}">${fmt(Math.abs(diff))}</div><div style="font-size:var(--fs-9);color:var(--muted);margin-top:1px">${cur.target?((cur.actual/cur.target)*100).toFixed(1)+'% of target':''}</div></div>
-      </div>
-    </div>`;
+    return tgtCard(cur.month + ' — current month', cur.target, cur.actual, diff, good, cur.target ? ((cur.actual / cur.target) * 100).toFixed(0) + '% of target' : '');
   })() : '';
 
   // ── Cumulative performance — every month up to and including the current one
@@ -1438,89 +1695,69 @@ function renderProgressS2() {
     const good     = diff >= 0;
     const pctOf    = cumT ? (cumA / cumT * 100) : 0;
     const monthsMet = tillNow.filter(r => r.actual >= r.target && r.actual > 0).length;
-    return `<div style="background:${good?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};border:1.5px solid ${good?'rgba(16,185,129,0.4)':'rgba(239,68,68,0.3)'};border-radius:12px;padding:14px 16px;margin-bottom:8px">
-      <div style="font-size:var(--fs-10);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:${good?'var(--positive)':'var(--negative)'};margin-bottom:8px">Cumulative — till ${last.month} · ${monthsMet}/${tillNow.length} on target</div>
-      <div class="grid-3">
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">Target</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px">${fmt(cumT)}</div></div>
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">Actual</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px;color:${cumA>0?(good?'var(--positive)':'var(--negative)'):'var(--muted)'}">${cumA>0?fmt(cumA):'—'}</div></div>
-        <div style="text-align:center"><div style="font-size:var(--fs-10);color:var(--muted)">${good?'Surplus':'Shortfall'}</div><div style="font-size:var(--fs-22);font-weight:700;margin-top:2px;color:${good?'var(--positive)':'var(--negative)'}">${fmt(Math.abs(diff))}</div><div style="font-size:var(--fs-9);color:var(--muted);margin-top:1px">${cumT?pctOf.toFixed(1)+'% of target':''}</div></div>
-      </div>
-    </div>`;
+    return tgtCard('Cumulative till ' + last.month + ' · ' + monthsMet + '/' + tillNow.length + ' on target', cumT, cumA, diff, good, pctOf ? pctOf.toFixed(0) + '% of target' : '');
   })() : '';
 
-  setContent(`${subTabsHtml}
-    <div class="loan-hero">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-size:var(--fs-10);color:var(--s2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">S2 Portfolio Value</div>
-          <div style="font-size:var(--fs-26);font-weight:700;letter-spacing:-1px;margin-top:2px">${fmt(s2PortValue)}</div>
-          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">invested + PAT − EMI · since ${loanDate().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:var(--fs-10);color:var(--muted)">Invested</div>
-          <div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(s2Invested)}</div>
-        </div>
+  setContent(`
+    <div class="card">
+      <div class="hero-top">
+        <div class="hero-label">S2 Portfolio Value</div>
+        <div class="hero-ctx">since ${loanDate().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
       </div>
-    </div>
-
-    <div class="loan-hero" style="margin-top:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <div style="font-size:var(--fs-10);color:var(--positive);font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Total Earnings</div>
-          <div style="font-size:var(--fs-26);font-weight:700;letter-spacing:-1px;margin-top:2px;color:${totalEarnings>=0?'var(--positive)':'var(--negative)'}">${fmt(totalEarnings)}</div>
-          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">portfolio − pending principal</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:var(--fs-10);color:var(--muted)">Pending Principal</div>
-          <div style="font-size:var(--fs-18);font-weight:700;margin-top:2px">${fmt(pendingPrincipal)}</div>
-        </div>
+      <div class="hero-val">${fmt(s2PortValue)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label">Invested</div><div class="sub-val" style="font-size:var(--fs-13)">${fmt(s2Invested)}</div></div>
+        <div class="hsub"><div class="sub-label">Earnings</div><div class="sub-val ${cls(totalEarnings)}" style="font-size:var(--fs-13)">${fmt(totalEarnings)}</div></div>
+        <div class="hsub"><div class="sub-label">Principal due</div><div class="sub-val" style="font-size:var(--fs-13)">${fmt(pendingPrincipal)}</div></div>
       </div>
+      <div class="hero-foot">Value = invested + PAT − EMI · Earnings = value − principal due</div>
     </div>
 
     <div class="card">
-      <div class="card-title">PAT vs EMI Paid</div>
-      <div class="grid-3">
-        <div class="mini-card"><div class="mini-label pos">PAT Earned</div><div class="mini-value pos" style="font-size:var(--fs-15)">${fmt(s2Pat)}</div></div>
-        <div class="mini-card" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.25)"><div class="mini-label" style="color:var(--accent)">Principal Paid</div><div class="mini-value" style="color:var(--accent);font-size:var(--fs-15)">${fmt(principalPaid)}</div></div>
-        <div class="mini-card" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.25)"><div class="mini-label" style="color:var(--negative)">Interest Paid</div><div class="mini-value" style="color:var(--negative);font-size:var(--fs-15)">${fmt(interestPaid)}</div></div>
+      <div class="hero-top" style="margin-bottom:10px;align-items:center"><div class="hero-label">PAT vs EMI Paid</div>
+        ${!localWB ? `<span class="emi-add ${emiFormOpen ? 'open' : ''}" title="${emiFormOpen ? 'Close' : 'Add this month\'s EMI'}" onclick="toggleEmiForm()">${ic('plus')}</span>` : ''}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label pos">PAT Earned</div><div class="sub-val pos" style="font-size:var(--fs-15)">${fmt(s2Pat)}</div></div>
+        <div class="hsub"><div class="sub-label" style="color:var(--accent)">Principal Paid</div><div class="sub-val" style="color:var(--accent);font-size:var(--fs-15)">${fmt(principalPaid)}</div></div>
+        <div class="hsub"><div class="sub-label" style="color:var(--negative)">Interest Paid</div><div class="sub-val" style="color:var(--negative);font-size:var(--fs-15)">${fmt(interestPaid)}</div></div>
       </div>
-      <div style="font-size:var(--fs-10);color:var(--muted);margin-top:8px">
+      <div class="hero-foot">
         EMI paid ${fmt(emiPaid)} · <span style="color:${shortfall>=0?'var(--positive)':'var(--negative)'};font-weight:700">${shortfall>=0?'Surplus':'Shortfall'} ${fmtN(shortfall)}</span> vs PAT</div>
+      ${emiFormHtml()}
     </div>
 
     <div class="card">
-      <div class="card-title">XIRR — S2 Strategy</div>
-      <div class="grid-3">
+      <div class="hero-top" style="margin-bottom:10px"><div class="hero-label">XIRR — S2 strategy</div></div>
+      <div class="grid-3" style="margin-bottom:0">
         ${[
-          ['Net (with loan)',   pNet],
-          ['Gross (own funds)', pGross],
-          ['Interest-only',     pInterest],
+          ['Net (loan)',     pNet],
+          ['Gross (own)',    pGross],
+          ['Interest only',  pInterest],
         ].map(([lbl, v]) => `
-        <div class="mini-card" style="display:flex;flex-direction:column;justify-content:space-between;padding:12px 8px">
-          <div class="mini-label" style="font-size:var(--fs-9);white-space:nowrap">${lbl}</div>
-          <div class="mini-value ${v !== null ? cls(v) : ''}" style="font-size:var(--fs-15)">${v !== null ? fmtP(v) : '—'}</div>
+        <div class="hsub">
+          <div class="sub-label">${lbl}</div>
+          <div class="sub-val ${v !== null ? cls(v) : ''}">${v !== null ? fmtP(v) : '—'}</div>
         </div>`).join('')}
       </div>
     </div>
 
-    <div class="sec-head" style="margin-top:4px">Monthly PAT Progress</div>
+    <div class="sec-head" style="margin-top:14px">Monthly PAT progress</div>
     ${cumHtml}
     ${curHtml}
     <div class="card" style="padding:0;overflow:hidden">
       <div class="scroll-tbl">
       <table class="tbl">
-        <thead><tr><th>#</th><th>Month</th><th>Target</th><th>Actual</th><th>Cum Target</th><th>Cum Actual</th></tr></thead>
+        <thead><tr><th>Month</th><th style="text-align:right">Target</th><th style="text-align:right">Actual</th><th style="text-align:right">Cum T</th><th style="text-align:right">Cum A</th></tr></thead>
         <tbody>${(state.progress2||[]).map(r => {
           const hit = r.actual >= r.target && r.actual > 0;
           const partial = r.actual > 0 && r.actual < r.target;
           const rowClr = hit ? 'rgba(16,185,129,0.08)' : partial ? 'rgba(251,191,36,0.08)' : '';
           return `<tr style="background:${rowClr}">
-            <td style="color:var(--muted)">${r.num}</td>
             <td style="font-weight:600">${r.month}</td>
-            <td>${fmt(r.target)}</td>
-            <td class="${r.actual>0?cls(r.actual-r.target+0.01):''}">${r.actual>0?fmt(r.actual):'—'}</td>
-            <td style="color:var(--muted)">${fmt(r.cum_target)}</td>
-            <td class="${r.cum_actual>0?cls(r.cum_actual-r.cum_target+0.01):''}">${r.cum_actual>0?fmt(r.cum_actual):'—'}</td>
+            <td style="text-align:right">${fmtF(r.target)}</td>
+            <td style="text-align:right" class="${r.actual>0?cls(r.actual-r.target+0.01):''}">${r.actual>0?fmtF(r.actual):'—'}</td>
+            <td style="text-align:right;color:var(--muted)">${fmtF(r.cum_target)}</td>
+            <td style="text-align:right" class="${r.cum_actual>0?cls(r.cum_actual-r.cum_target+0.01):''}">${r.cum_actual>0?fmtF(r.cum_actual):'—'}</td>
           </tr>`;
         }).join('')}</tbody>
       </table>
@@ -1530,7 +1767,7 @@ function renderProgressS2() {
 
 // Progress_S1 sync: monthly Inv fill + new lot rows + flip (floor(PAT/1000)) + splits
 async function syncProgress() {
-  if (!confirm('Sync Progress S1?\n• fills Inv for months that arrived + adds new monthly lot rows\n• flips floor(PAT/1000) − already-booked slots to Booked\n• splits fully booked lots into {id}.1 / {id}.2')) return;
+  if (!(await askConfirm('Sync Progress S1?\n• fills Inv for months that arrived + adds new monthly lot rows\n• flips floor(PAT/1000) − already-booked slots to Booked\n• splits fully booked lots into {id}.1 / {id}.2'))) return;
   try {
     const j = await waPost({ fn: 'sync_progress' });
     let msg = j.flipped
@@ -1560,7 +1797,7 @@ function setProsSort(key) { prosSort = prosSort.key === key ? { key, dir: -prosS
 async function refreshProspects() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('pros-refresh');
-  if (b) b.textContent = '⏳ fetching CMPs…';
+  if (b) b.innerHTML = SPIN + '<span>Fetching…</span>';
   try {
     const j = await waPost({ fn: 'prospects' });
     state.prospects = j.prospects || [];
@@ -1576,9 +1813,9 @@ async function refreshProspects() {
 // Response: { ok, added, funds, lots, actions }
 async function proposeS2Buys() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Propose S2 buys from available cash?\n\nAdds buy-GTT rows to Actions — nothing is placed until you execute them there.')) return;
+  if (!(await askConfirm('Propose S2 buys from available cash?\n\nAdds buy-GTT rows to Actions — nothing is placed until you execute them there.'))) return;
   const b = document.getElementById('pros-gtt');
-  if (b) b.textContent = '⏳';
+  if (b) b.innerHTML = SPIN;
   try {
     const j = await waPost({ fn: 's2_buys' });
     // webListActions_ returns {row, ...} — was being assigned straight onto
@@ -1616,13 +1853,13 @@ async function proposeS2Buys() {
 async function cancelS2Buys() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('pros-cancel');
-  if (b) b.textContent = '⏳';
+  if (b) b.innerHTML = SPIN;
   try {
     const p = await waPost({ fn: 'cancel_s2_buys', preview: true });
     const t = p.targets || [];
     if (t.length === 0) { alert('No open S2 buy GTTs to cancel.'); return; }
     const lines = t.map(g => '• ' + g.ticker + '  qty ' + g.qty + '  trg ₹' + g.trigger + '  ~₹' + (g.value || 0).toLocaleString('en-IN')).join('\n');
-    if (!confirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.')) return;
+    if (!(await askConfirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.'))) return;
     try {
       const j = await waPost({ fn: 'cancel_s2_buys' });
       // Cancelling can retire pending rows — resync so Actions row numbers stay valid
@@ -1648,14 +1885,16 @@ async function cancelS2Buys() {
   } catch (e) {
     alert('Cancel S2 buys failed: ' + e.message);
   } finally {
-    if (b) b.textContent = '🚫 cancel buys';
+    if (b) b.innerHTML = ic('ban') + '<span>Cancel</span>';
   }
 }
 
 const prosRefreshBtn = () => localWB ? '' : `
-  <span id="pros-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" onclick="refreshProspects()">↻ refresh CMP</span>
-  <span id="pros-gtt" class="badge" style="cursor:pointer;color:var(--accent)" title="Propose S2 buys into Actions" onclick="proposeS2Buys()">💰 propose buys</span>
-  <span id="pros-cancel" class="badge" style="cursor:pointer;color:var(--danger,#ef4444)" title="Cancel open S2 buy GTTs" onclick="cancelS2Buys()">🚫 cancel buys</span>`;
+  <div class="qbtns">
+    <button id="pros-refresh" class="qbtn" onclick="refreshProspects()">${ic('refresh')}<span>Refresh</span></button>
+    <button id="pros-gtt" class="qbtn" style="color:var(--accent)" onclick="proposeS2Buys()">${ic('plus')}<span>Propose</span></button>
+    <button id="pros-cancel" class="qbtn" style="color:var(--negative)" onclick="cancelS2Buys()">${ic('ban')}<span>Cancel</span></button>
+  </div>`;
 
 // Inline "buy in Kite" flow removed 2026-08-02 — orders are placed in Kite directly.
 
@@ -1663,122 +1902,195 @@ function renderProspects() {
   const rows = state.prospects || [];
   if (rows.length === 0) {
     setContent(`
-      <div class="sec-head">S2 Prospects ${prosRefreshBtn()}</div>
+      <div class="card">${prosRefreshBtn()}</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
-        <div style="font-size:var(--fs-32);margin-bottom:8px">🔭</div>
+        <div class="empty-ico" style="margin-bottom:8px">${ic('search')}</div>
         <div>No watchlist stocks in the 9–13% band right now.</div>
-        <div style="font-size:var(--fs-11);margin-top:6px">↻ refresh CMP re-checks live prices without a full VTP run.</div>
+        <div style="font-size:var(--fs-11);margin-top:6px">Refresh CMP re-checks live prices without a full VTP run.</div>
       </div>`);
     return;
   }
   // Held stocks sink to the bottom regardless of column sort
   const base   = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
   const sorted = [...base.filter(r => !r.held), ...base.filter(r => r.held)];
+  const hd = (label, key, cls) => `<span class="${cls || ''} ${prosSort.key === key ? 'on' : ''}" onclick="setProsSort('${key}')">${label}${prosSort.key === key ? (prosSort.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`;
+  const cands = rows.filter(r => !r.held);
+  const nearest = cands.length ? Math.min(...cands.map(r => r.away)) : null;
+  const upd = (rows.find(r => r.updated) || {}).updated || '';
   setContent(`
-    <div class="sec-head">S2 Prospects
-      ${prosRefreshBtn()}</div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr>
-          ${th('Scrip','ticker',prosSort,'setProsSort')}
-          ${th('CMP','cmp',prosSort,'setProsSort')}
-          ${th('Low','lowest',prosSort,'setProsSort')}
-          ${th('Away','away',prosSort,'setProsSort')}
-          ${th('Qty · ~Lot','qty',prosSort,'setProsSort','right')}
-        </tr></thead>
-        <tbody>
-          ${sorted.map(r => {
-            const nearness = Math.max(0, Math.min(1, (13 - r.away) / 4));  // 13%→0, 9%→1
-            const awayColor = nearness > 0.66 ? 'var(--positive)' : nearness > 0.33 ? '#fbbf24' : 'var(--muted)';
-            return `
-            <tr style="${r.held ? 'opacity:0.45' : ''}">
-              <td><div style="font-weight:600">${r.ticker}</div>
-                  <div style="font-size:var(--fs-10);margin-top:1px;color:var(--muted)">${r.ref}${r.held ? ' · <span style="color:#f87171;font-weight:700">HELD — skip</span>' : ''}</div></td>
-              <td>₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})}</td>
-              <td>${r.lowest ? '₹'+r.lowest.toLocaleString('en-IN',{maximumFractionDigits:1}) : '—'}${r.lowest && r.cmp <= r.lowest*1.01 ? ' <span style="color:var(--positive);font-size:var(--fs-10);font-weight:700">↓low</span>' : ''}</td>
-              <td style="font-weight:700;color:${awayColor}">${r.away.toFixed(1)}%</td>
-              <td style="text-align:right;font-weight:600">${r.qty}<div style="font-size:var(--fs-10);color:var(--muted)">${fmt(r.value)}</div>
-                </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div class="card">
+      <div class="hero-top"><div class="hero-label">S2 prospects</div><div class="hero-ctx">${upd ? 'CMP ' + upd.replace(/^\d{4}-\d{2}-\d{2}\s*/, '') : ''}</div></div>
+      <div class="hero-val">${cands.length} <span style="font-size:var(--fs-15);color:var(--muted);font-weight:600">to buy</span></div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label">In band</div><div class="sub-val">${rows.length}</div></div>
+        <div class="hsub"><div class="sub-label">Held · skip</div><div class="sub-val" style="color:var(--muted)">${rows.length - cands.length}</div></div>
+        <div class="hsub"><div class="sub-label">Nearest</div><div class="sub-val pos">${nearest != null ? nearest.toFixed(1) + '%' : '—'}</div></div>
+      </div>
+      ${prosRefreshBtn()}
+      <div class="hero-foot">Stocks 9–13% above their buy trigger · qty sized to ~₹50k · ↓ = at its recent low · held stocks dimmed at the bottom · Propose adds buy GTTs to Actions, Cancel removes open S2 buy GTTs</div>
+    </div>
+    <div class="card list-card">
+      <div class="lr lr-h lr-pr">${hd('Scrip','ticker')}${hd('CMP','cmp','r')}${hd('Away','away','r')}${hd('Qty','qty','r')}<span class="r">Amt</span></div>
+      ${sorted.map(r => {
+        const nearness = Math.max(0, Math.min(1, (13 - r.away) / 4));  // 13%→0, 9%→1
+        const awayColor = nearness > 0.66 ? 'var(--positive)' : nearness > 0.33 ? 'var(--warn)' : 'var(--muted)';
+        const atLow = r.lowest && r.cmp <= r.lowest * 1.01;
+        return `
+      <div class="lr lr-pr" style="${r.held ? 'opacity:0.45' : ''}">
+        <span class="lr-t">${r.ticker}${atLow ? `<span class="pos" title="At its recent low" style="font-weight:800">↓</span>` : ''}</span>
+        <span class="r">${Math.round(r.cmp).toLocaleString('en-IN')}</span>
+        <span class="r b" style="color:${awayColor}">${r.away.toFixed(1)}%</span>
+        <span class="r m">${r.qty}</span>
+        <span class="r">${fmtF(r.value)}</span>
+      </div>`; }).join('')}
     </div>
   `);
 }
 
 // ── Actions (from the Actions sheet) ──────────────────────────────────────────
+const ACTION_LABELS = {
+  PLACE_BUY_GTT: 'Place buy GTT', REORDER_BUY_GTT: 'Re-place buy GTT', PLACE_SELL_GTT: 'Place sell GTT',
+  CANCEL_GTT: 'Cancel GTT', CLASSIFY_FILL: 'Classify fill', CLOSE_LOT: 'Close lot',
+  DELETE_S1_ROW: 'Remove S1 row', DELETE_S2_ROW: 'Remove S2 row', ADD_S2_ROW: 'Add S2 row', ADD_S0_ROW: 'Add S0 row',
+  ADD_ORPHAN_REPO_ROW: 'Add missing repo row', NEEDS_ATTENTION: 'Needs attention', QUARTERLY_RESET: 'Quarterly reset',
+};
+const actLabel = c => ACTION_LABELS[c] || String(c || '').toLowerCase().replace(/_/g, ' ').replace(/^./, m => m.toUpperCase());
+let showDoneActions = false;
+// Short type tag shown after the S1/S2 pill
+function actType(a) {
+  const d = String(a.details || '');
+  switch (a.action) {
+    case 'PLACE_BUY_GTT':   return /^RETRY/i.test(d) ? ['Retry buy', 'buy'] : ['Buy', 'buy'];
+    case 'REORDER_BUY_GTT': return ['Restore buy', 'restore'];
+    case 'PLACE_SELL_GTT':  return /^RESTORE/i.test(d) ? ['Restore sell', 'restore'] : ['Sell', 'sell'];
+    case 'CANCEL_GTT':      return ['Cancel', 'other'];
+    default:                return [actLabel(a.action), 'other'];
+  }
+}
+// Pull the numbers out of the GAS details text (only for order-placing actions)
+function actFields(a) {
+  const d = String(a.details || '');
+  const g = re => { const m = d.match(re); return m ? m[1] : ''; };
+  return {
+    upper: g(/upper Rs\s*([\d.]+)/i),
+    lower: g(/lower Rs\s*([\d.]+)/i),
+    single: g(/single\s+Rs\s*([\d.]+)/i),
+    trg:   g(/trg[ =]\s*Rs?\s*([\d.]+)/i),
+    qty:   g(/qty[ =]\s*(\d+)/i),
+    fill:  (v => v ? String(+(+v).toFixed(2)) : '')(g(/(?:fill|buy)@\s*([\d.]+)/i)),
+    wasId: g(/was id\s*(\d+)/i),
+  };
+}
+function toggleDoneActions() { showDoneActions = !showDoneActions; renderActions(); }
+// Tap anywhere on a row to tick it (but not when tapping its price / qty / classify inputs)
+function actRowTap(ev, row) {
+  if (ev.target.closest('input,select,button,label')) return;
+  const cb = document.getElementById('chk-' + row);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  toggleRowSel(row, cb);
+  cb.closest('.act-row').classList.toggle('sel', cb.checked);
+}
 function renderActions() {
+  const runTag = state.actionsTitle ? state.actionsTitle.replace('VTP Daily Check — ', '') : '';
+  const logBtn = !localWB ? `<span style="cursor:pointer;color:var(--accent);display:inline-flex;align-items:center;gap:4px" onclick="viewLastLog()">${ic('log')} Run log</span>` : '';
   if (state.actions.length === 0) {
     setContent(`
-      <div class="sec-head">Actions ${state.actionsTitle ? `<span class="badge">${state.actionsTitle.replace('VTP Daily Check — ','')}</span>` : ''}
-        ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent)" onclick="viewLastLog()">📜 run log</span>` : ''}</div>
-      <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
-        <div style="font-size:var(--fs-32);margin-bottom:8px">✅</div>
-        <div>No actions in the last daily check.</div>
-        ${!localWB ? `<div style="margin-top:10px;font-size:var(--fs-12);color:var(--accent);cursor:pointer" onclick="viewLastLog()">View run log to verify all phases ran →</div>` : ''}
-      </div>
-    `);
+      <div class="card">
+        <div class="hero-top"><div class="hero-label">Actions</div><div class="hero-ctx">${runTag}</div></div>
+        <div style="text-align:center;padding:20px 0 6px;color:var(--muted)">
+          <div class="empty-ico" style="margin-bottom:8px;color:var(--positive)">${ic('check')}</div>
+          <div>No actions in the last check.</div>
+          ${logBtn ? `<div style="margin-top:12px;font-size:var(--fs-13)">${logBtn}</div>` : ''}
+        </div>
+      </div>`);
     return;
   }
-  const pending = state.actions.filter(a => a.status === 'Pending').length;
-  const done    = state.actions.filter(a => a.status === 'Done').length;
-  const errors  = state.actions.filter(a => a.status.startsWith('ERROR')).length;
+  const isErr  = a => String(a.status).startsWith('ERROR');
+  const pend   = state.actions.filter(a => a.status === 'Pending');
+  const errs   = state.actions.filter(isErr);
+  const done   = state.actions.filter(a => a.status === 'Done');
   const canExec = !localWB;   // execution needs the live sheet
+  const open   = errs.concat(pend);
+
+  const row = a => {
+    const err = isErr(a);
+    const selectable = canExec && a.status !== 'Done';
+    const sel = selectable && selectedRows.has(a.sheetRow);
+    const placing = a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || a.action === 'PLACE_SELL_GTT';
+    const [tLbl, tCls] = actType(a);
+    let body = '';
+    if (placing) {
+      const f = actFields(a);
+      const edit = selectable;
+      const tEdit = (lbl, id, val, mode) => edit
+        ? `<label class="hsub act-tile edit"><div class="sub-label">${lbl}</div><input id="${id}-${a.sheetRow}" data-orig="${val}" type="number" inputmode="${mode}" step="${mode === 'numeric' ? 1 : 'any'}" value="${val}"></label>`
+        : tInfo(lbl, val);
+      const tInfo = (lbl, val, locked) => `<div class="hsub act-tile ${locked ? 'locked' : ''}"><div class="sub-label">${lbl}${locked ? ' ' + ic('lock') : ''}</div><div class="act-tv">${val || '—'}</div></div>`;
+      const px  = a.recPrice !== '' && a.recPrice != null ? a.recPrice : '';
+      const qty = a.recQty   !== '' && a.recQty   != null ? a.recQty   : f.qty;
+      let tiles;
+      if (a.action === 'PLACE_SELL_GTT' && (a.strategy === 'S2' || f.upper)) {
+        tiles = [tEdit('Upper', 'px', px || f.upper, 'decimal'), tInfo('Lower', f.lower, true), tEdit('Qty', 'qty', qty, 'numeric'), f.fill ? tInfo('Fill', f.fill) : ''];
+      } else if (a.action === 'PLACE_SELL_GTT') {
+        tiles = [tEdit('Sell at', 'px', px || f.single, 'decimal'), tEdit('Qty', 'qty', qty, 'numeric'), f.fill ? tInfo('Fill', f.fill) : ''];
+      } else {
+        tiles = [tEdit('Trigger', 'px', px || f.trg, 'decimal'), tEdit('Qty', 'qty', qty, 'numeric')];
+        const t = parseFloat(px || f.trg), q = parseFloat(qty);
+        if (t && q) tiles.push(tInfo('Amount', fmt(t * q)));
+      }
+      tiles = tiles.filter(Boolean);
+      body = `<div class="act-tiles" style="grid-template-columns:repeat(${tiles.length},1fr)">${tiles.join('')}</div>
+        ${tCls === 'restore' && f.wasId ? `<div class="act-note">Replaces GTT ${f.wasId}</div>` : ''}`;
+    } else {
+      body = `<div class="act-det">${a.details || ''}</div>`;
+    }
+    return `
+    <div class="act-row ${sel ? 'sel' : ''} ${a.status === 'Done' ? 'done' : ''}" ${selectable ? `onclick="actRowTap(event, ${a.sheetRow})"` : ''}>
+      ${selectable ? `<input type="checkbox" id="chk-${a.sheetRow}" class="row-check" onchange="toggleRowSel(${a.sheetRow}, this);this.closest('.act-row').classList.toggle('sel', this.checked)" ${sel ? 'checked' : ''}/>` : `<span class="act-done-ico">${ic('check')}</span>`}
+      <div style="flex:1;min-width:0">
+        <div class="act-head">
+          <span class="act-sym">${a.symbol}</span>${pill(a.strategy)}<span class="type-tag t-${tCls}">${tLbl}</span>
+        </div>
+        ${body}
+        ${a.action === 'CLASSIFY_FILL' && selectable ? `
+          <select id="cls-${a.sheetRow}" class="cls-sel" style="margin-top:8px">
+            <option value="">Classify…</option>
+            <option value="S1">S1 — GTT fill (delayed email)</option>
+            <option value="S2">S2 — manual buy</option>
+          </select>` : ''}
+        ${err ? `<div class="act-err">${a.status}</div>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const selRows = open.map(a => a.sheetRow);
+  const allSel  = selRows.length > 0 && selRows.every(r => selectedRows.has(r));
   setContent(`
-    <div class="sec-head">Actions <span class="badge">${state.actionsTitle ? state.actionsTitle.replace('VTP Daily Check — ','') : state.actions.length}</span>
-      ${!localWB ? `<span class="badge" style="cursor:pointer;color:var(--accent)" onclick="viewLastLog()">📜 run log</span>` : ''}</div>
-    <div class="grid-3" style="margin-bottom:12px">
-      <div class="mini-card"><div class="mini-label" style="color:#fbbf24">Pending</div><div class="mini-value" style="color:#fbbf24">${pending}</div></div>
-      <div class="mini-card"><div class="mini-label pos">Done</div><div class="mini-value pos">${done}</div></div>
-      <div class="mini-card"><div class="mini-label neg">Errors</div><div class="mini-value neg">${errors}</div></div>
-    </div>
     <div class="card">
-      ${canExec && pending + errors > 0 ? (() => {
-        const selRows = state.actions.filter(a => a.status !== 'Done').map(a => a.sheetRow);
-        const allSel  = selRows.length > 0 && selRows.every(r => selectedRows.has(r));
-        return `
-        <div style="display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:4px">
-          <input type="checkbox" class="row-check" onchange="selectAllActions(this)" ${allSel ? 'checked' : ''}/>
-          <span style="font-size:var(--fs-11);color:var(--muted)">Select all (${selRows.length})</span>
-        </div>`;
-      })() : ''}
-      ${state.actions.map(a => {
-        const stCls = a.status.startsWith('ERROR') ? 'act-error' : a.status === 'Done' ? 'act-done' : 'act-pending';
-        const stTxt = a.status.startsWith('ERROR') ? 'ERROR' : a.status.toUpperCase();
-        const selectable = canExec && a.status !== 'Done';
-        return `
-        <div class="trade-row">
-          ${selectable ? `<input type="checkbox" class="row-check" onchange="toggleRowSel(${a.sheetRow}, this)" ${selectedRows.has(a.sheetRow) ? 'checked' : ''}/>` : ''}
-          <span class="act-status ${stCls}">${stTxt}</span>
-          <div style="flex:1;min-width:0">
-            <div class="trade-sym">${a.symbol} <span style="font-size:var(--fs-10);color:var(--muted);font-weight:500">${a.action}</span></div>
-            <div class="trade-meta" style="white-space:normal">${pill(a.strategy)} ${a.details}</div>
-            ${a.action === 'CLASSIFY_FILL' && selectable ? `
-              <div style="margin-top:5px">
-                <select id="cls-${a.sheetRow}" class="cls-sel">
-                  <option value="">Classify…</option>
-                  <option value="S1">S1 — GTT fill (delayed email)</option>
-                  <option value="S2">S2 — manual buy</option>
-                </select>
-              </div>` : ''}
-            ${selectable && (a.action === 'PLACE_BUY_GTT' || a.action === 'REORDER_BUY_GTT' || a.action === 'PLACE_SELL_GTT') ? `
-              <div style="margin-top:5px;display:flex;gap:6px;align-items:center;font-size:var(--fs-11);color:var(--muted)">
-                ✏ ₹<input id="px-${a.sheetRow}" type="number" inputmode="decimal" step="any" value="${a.recPrice}"
-                     style="width:78px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:var(--fs-12)">
-                ${a.action === 'PLACE_SELL_GTT' && a.strategy === 'S2' ? `<span style="font-size:var(--fs-10)">(upper leg)</span>` : ''}
-                qty <input id="qty-${a.sheetRow}" type="number" inputmode="numeric" step="1" value="${a.recQty}"
-                     style="width:60px;background:var(--wash2);border:1px solid var(--inborder);border-radius:6px;color:inherit;padding:3px 6px;font-size:var(--fs-12)">
-              </div>` : ''}
-            ${a.status.startsWith('ERROR') ? `<div style="font-size:var(--fs-10);color:#f87171;margin-top:2px">${a.status}</div>` : ''}
-          </div>
-        </div>`;
-      }).join('')}
+      <div class="hero-top"><div class="hero-label">Actions</div><div class="hero-ctx">${runTag}</div></div>
+      <div class="hero-val" style="color:${open.length ? 'var(--warn)' : 'var(--positive)'}">${open.length ? open.length + ' pending' : 'All done'}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label">Pending</div><div class="sub-val" style="color:var(--warn)">${pend.length}</div></div>
+        <div class="hsub"><div class="sub-label">Errors</div><div class="sub-val neg">${errs.length}</div></div>
+        <div class="hsub"><div class="sub-label">Done</div><div class="sub-val pos">${done.length}</div></div>
+      </div>
+      ${logBtn ? `<div class="hero-foot" style="font-size:var(--fs-13)">${logBtn}</div>` : ''}
     </div>
-    ${canExec && pending + errors > 0 ? `
+    ${open.length ? `
+    <div class="sec-head" style="margin-top:14px">Pending <span class="badge">${open.length}</span>
+      ${canExec ? `<label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:var(--fs-13);font-weight:500;color:var(--muted)">
+        <input type="checkbox" class="row-check" onchange="selectAllActions(this)" ${allSel ? 'checked' : ''}/> Select all</label>` : ''}
+    </div>
+    <div class="card" style="padding:4px 14px">${open.map(row).join('')}</div>` : ''}
+    ${done.length ? `
+    <div class="more-toggle ${showDoneActions ? 'open' : ''}" style="border-top:none;margin:14px 2px 10px;padding-top:0" onclick="toggleDoneActions()">
+      <span>Done (${done.length})</span><span class="chev">${ic('chev')}</span></div>
+    ${showDoneActions ? `<div class="card" style="padding:4px 14px">${done.map(row).join('')}</div>` : ''}` : ''}
+    ${canExec && open.length ? `
     <div class="exec-bar">
-      <span id="exec-count" style="font-size:var(--fs-12);color:var(--muted);min-width:80px">${selectedRows.size} selected</span>
-      <button id="exec-btn" onclick="executeSelected()" ${selectedRows.size === 0 ? 'disabled' : ''}>⚡ Execute Selected</button>
+      <span id="exec-count" style="font-size:var(--fs-13);color:var(--muted);min-width:80px">${selectedRows.size} selected</span>
+      <button id="exec-btn" onclick="executeSelected()" ${selectedRows.size === 0 ? 'disabled' : ''}>${ic('zap')} Execute Selected</button>
     </div>` : ''}
   `);
 }
@@ -1790,44 +2102,47 @@ function renderClosed(selectedFY) {
   currentClosedFY = fy;
   const allFY  = fy === 'ALL';
   const fyRows = allFY ? state.closed : state.closed.filter(r => r.fy === fy);
-  const rows = sortRows(fyRows.filter(r => stratMatch(closedStratSet, r)), closedSort.key, closedSort.dir, {
+  const stRows = fyRows.filter(r => stratMatch(closedStratSet, r));
+  const base = sortRows(stRows, closedSort.key, closedSort.dir, {
     scrip:    r => r.scrip,
     buyDate:  r => dateVal(r.buyDate),
     sellDate: r => dateVal(r.sellDate),
   });
+  const wins  = base.filter(r => r.pat > 0).length;
+  const loss  = base.filter(r => r.pat < 0).length;
+  const rows  = closedPL === 'win' ? base.filter(r => r.pat > 0) : closedPL === 'loss' ? base.filter(r => r.pat < 0) : base;
   const totalPAT = rows.reduce((a,r) => a + r.pat, 0);
-  const wins  = rows.filter(r => r.pat > 0).length;
-  const loss  = rows.filter(r => r.pat < 0).length;
+  const sel = [...closedStratSet][0] || '';
+  const hd = (label, key, cls) => `<span class="${cls || ''} ${closedSort.key === key ? 'on' : ''}" onclick="setClosedSort('${key}')">${label}${closedSort.key === key ? (closedSort.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`;
+  const sd = d => { const m = String(d || '').match(/^(\d{2})\.(\d{2})\.(\d{2})(\d{2})$/); return m ? m[1] + '.' + m[2] + '.' + m[4] : (d || ''); };
+  const plChip = (v, label, n, c) => `<div class="sub-tab ${closedPL === v ? 'active' : ''}" onclick="setClosedPL('${v}')" style="${closedPL === v ? '' : 'color:' + c}">${label} <span style="opacity:0.7">${n}</span></div>`;
   setContent(`
-    <div class="sec-head">Closed Trades <span class="badge">${allFY ? 'All FYs' : fy}</span></div>
-    ${fys.length > 1 ? `
-    <div class="sub-tabs">
-      <div class="sub-tab ${allFY?'active':''}" onclick="renderClosed('ALL')">All</div>
-      ${fys.map(f => `<div class="sub-tab ${f===fy?'active':''}" onclick="renderClosed('${f}')">${f}</div>`).join('')}
-    </div>` : ''}
-    ${stratChips(closedStratSet, 'toggleClosedStrat', fyRows)}
-    <div class="grid-3">
-      <div class="mini-card"><div class="mini-label">PAT</div><div class="mini-value ${cls(totalPAT)}">${fmt(totalPAT)}</div></div>
-      <div class="mini-card"><div class="mini-label pos">Wins</div><div class="mini-value pos">${wins}</div></div>
-      <div class="mini-card"><div class="mini-label neg">Loss</div><div class="mini-value neg">${loss}</div></div>
+    <div class="sub-tabs chip-row">
+      <div class="sub-tab ${allFY ? 'active' : ''}" onclick="renderClosed('ALL')">All</div>
+      ${fys.map(f => `<div class="sub-tab ${f === fy ? 'active' : ''}" onclick="renderClosed('${f}')">${f.replace('FY', '')}</div>`).join('')}
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table class="tbl">
-        <thead><tr>
-          ${th('Scrip','scrip',closedSort,'setClosedSort')}
-          ${th('Buy → Sell','sellDate',closedSort,'setClosedSort')}
-          ${th('PAT','pat',closedSort,'setClosedSort','right')}
-        </tr></thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr>
-              <td><div style="font-weight:600">${r.scrip}</div><div style="font-size:var(--fs-10);margin-top:1px">${pill(r.strategy)} ${r.qty} × ₹${r.buyPrice.toLocaleString('en-IN',{maximumFractionDigits:1})} → ₹${r.sellPrice.toLocaleString('en-IN',{maximumFractionDigits:1})}</div></td>
-              <td style="font-size:var(--fs-11);color:var(--muted)">${r.buyDate||''}<br>${r.sellDate||''}</td>
-              <td style="text-align:right;font-weight:600" class="${cls(r.pat)}">${fmt(r.pat)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+    <div class="card">
+      <div class="hero-top"><div class="hero-label">${sel ? sel + ' ' : ''}PAT${closedPL !== 'all' ? ' · ' + (closedPL === 'win' ? 'wins' : 'losses') : ''}</div><div class="hero-ctx">${allFY ? 'all FYs' : fy} · ${rows.length} trades</div></div>
+      <div class="hero-val ${cls(totalPAT)}">${fmt(totalPAT)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        ${['S1', 'S2', 'S0'].map(st => { const rs = fyRows.filter(r => r.strategy === st); const p = rs.reduce((a, r) => a + r.pat, 0);
+          return `<div class="hsub strat-sub ${sel === st ? 'on' : ''} ${sel && sel !== st ? 'off' : ''}" onclick="toggleClosedStrat('${st}')">
+            <div class="sub-label" style="display:flex;justify-content:space-between;align-items:center;gap:4px">${pill(st)}<span class="sub-n">${rs.length}</span></div>
+            <div class="sub-val ${cls(p)}" style="font-size:var(--fs-13)">${fmt(p)}</div></div>`; }).join('')}
+      </div>
+      <div class="sub-filters"><div class="sub-tabs chip-row mini-chips" style="margin-bottom:0">
+        ${plChip('win', 'Wins', wins, 'var(--positive)')}${plChip('loss', 'Losses', loss, 'var(--negative)')}
+      </div></div>
+    </div>
+    <div class="card list-card">
+      <div class="lr lr-h lr-cl">${hd('Scrip','scrip')}${hd('Buy','buyDate')}${hd('Sell','sellDate')}${hd('PAT','pat','r')}</div>
+      ${rows.length ? rows.map(r => `
+      <div class="lr lr-cl">
+        <span class="lr-t"><i class="sdot sd-${(r.strategy || '').toLowerCase()}"></i>${r.scrip}</span>
+        <span class="m sm">${sd(r.buyDate)}</span>
+        <span class="m sm">${sd(r.sellDate)}</span>
+        <span class="r b ${cls(r.pat)}">${fmtF(r.pat)}</span>
+      </div>`).join('') : `<div style="text-align:center;color:var(--muted);padding:24px 0">No trades here.</div>`}
     </div>
   `);
 }
@@ -1838,8 +2153,9 @@ function renderClosed(selectedFY) {
 // here when S2 over-performance can absorb it.
 let staleStratSet = new Set();
 function toggleStaleStrat(s) {
-  if (s === 'all') staleStratSet.clear();
-  else staleStratSet.has(s) ? staleStratSet.delete(s) : staleStratSet.add(s);
+  const was = staleStratSet.has(s);
+  staleStratSet.clear();
+  if (s !== 'all' && !was) staleStratSet.add(s);
   renderStale();
 }
 let staleOnly = true;
@@ -1848,7 +2164,7 @@ function toggleStaleOnly() { staleOnly = !staleOnly; renderStale(); }
 async function refreshStaleCmp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('stale-refresh');
-  if (b) b.textContent = '⏳';
+  if (b) b.innerHTML = SPIN;
   try {
     const j = await waPost({ fn: 'stale_cmp' });
     if (j.stale && j.stale.length) state.stale = j.stale;
@@ -1861,9 +2177,9 @@ async function refreshStaleCmp() {
 // Full rebuild — re-scans a year of screener mail, so it takes a while
 async function rerunStale() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Re-run the full Stale analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.')) return;
+  if (!(await askConfirm('Re-run the full Stale analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.'))) return;
   const b = document.getElementById('stale-rerun');
-  if (b) b.textContent = '⏳';
+  if (b) b.innerHTML = SPIN;
   try {
     const j = await waPost({ fn: 'stale_full' });
     if (j.stale && j.stale.length) state.stale = j.stale;
@@ -1881,11 +2197,10 @@ function renderStale() {
   const all = state.stale || [];
   if (all.length === 0) {
     setContent(`
-      <div class="sec-head">Stale</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
-        <div style="font-size:32px;margin-bottom:8px">🕰</div>
+        <div class="empty-ico" style="margin-bottom:8px">${ic('clock')}</div>
         <div>Stale sheet not found or empty.</div>
-        <div style="font-size:var(--fs-11);margin-top:8px">Tap 🕰 re-run, or use <b>VTP → 🕰 Stale review</b> in the sheet.</div>
+        <div style="font-size:var(--fs-11);margin-top:8px">Tap re-run, or use <b>VTP → Stale review</b> in the sheet.</div>
       </div>`);
     return;
   }
@@ -1907,74 +2222,43 @@ function renderStale() {
   const emiPd  = Math.abs((state.fundBlock.s2 || {})['Cash Out'] || 0);
   const buffer = s2Pat - emiPd;
 
+  const hd = (label, key, cls) => `<span class="${cls || ''} ${staleSort.key === key ? 'on' : ''}" onclick="setStaleSort('${key}')">${label}${staleSort.key === key ? (staleSort.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`;
+  const pool = staleOnly ? all.filter(isStale) : all;
+  const sel = [...staleStratSet][0] || '';
+  const stChip = st => `<div class="sub-tab ${sel === st ? 'active' : ''}" onclick="toggleStaleStrat('${st}')">${st} <span style="opacity:0.6">${pool.filter(r => r.strategy === st).length}</span></div>`;
+  const tools = !localWB ? `
+      <div class="qbtns">
+        <button id="stale-refresh" class="qbtn" onclick="refreshStaleCmp()">${ic('refresh')}<span>Refresh CMP</span></button>
+        <button id="stale-rerun" class="qbtn" onclick="rerunStale()">${ic('clock')}<span>Re-run review</span></button>
+      </div>` : '';
   setContent(`
-    <div class="sec-head">Stale
-      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        ${!localWB ? `
-        <span id="stale-refresh" class="badge" style="cursor:pointer;color:var(--accent2)" title="Refresh CMP only" onclick="refreshStaleCmp()">↻ CMP</span>
-        <span id="stale-rerun" class="badge" style="cursor:pointer;color:var(--accent)" title="Re-run full stale analysis" onclick="rerunStale()">🕰 re-run</span>` : ''}
-        <span class="badge" style="cursor:pointer;font-size:var(--fs-14);line-height:1" title="Back to Dashboard" onclick="showTab('dashboard')">←</span>
-      </span></div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="mini-label">Stale lots — current value</div>
-        <div style="font-size:var(--fs-10);color:var(--muted)">${staleRows2.length} of ${all.length} held</div>
-      </div>
-      <div class="mini-value" style="font-size:var(--fs-26);margin:2px 0 10px">${fmt(staleVal)}</div>
-      <div class="grid-3" style="margin-bottom:0">
-        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
-          <div class="mini-label">Invested</div>
-          <div class="mini-value" style="font-size:var(--fs-14)">${fmt(staleCost)}</div>
-        </div>
-        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
-          <div class="mini-label">Unrealised P&L</div>
-          <div class="mini-value ${cls(stalePnl)}" style="font-size:var(--fs-14)">${fmtN(stalePnl)}</div>
-          <div style="font-size:var(--fs-10);color:var(--muted);margin-top:3px">${stalePct.toFixed(1)}%</div>
-        </div>
-        <div class="mini-card" style="background:var(--wash);border-color:var(--inborder)">
-          <div class="mini-label">S2 buffer</div>
-          <div class="mini-value ${cls(buffer)}" style="font-size:var(--fs-14)">${fmtN(buffer)}</div>
-          <div style="font-size:var(--fs-10);color:var(--muted);margin-top:3px">${stalePnl < 0 ? (buffer >= Math.abs(stalePnl) ? 'covers all' : Math.round(buffer / Math.abs(stalePnl) * 100) + '% covered') : ''}</div>
-        </div>
-      </div>
-      <div style="font-size:var(--fs-10);color:var(--muted);margin-top:8px">
-        S1 stale = no VTP alert in 365d · S2 stale = held &gt; 30d · S2 buffer = S2 PAT − EMI paid</div>
-    </div>
     <div class="sub-tabs">
-      <div class="sub-tab ${staleOnly ? 'active' : ''}" onclick="toggleStaleOnly()">Stale only <span style="opacity:0.6">${all.filter(isStale).length}</span></div>
-      <div class="sub-tab ${staleOnly ? '' : 'active'}" onclick="toggleStaleOnly()">All held <span style="opacity:0.6">${all.length}</span></div>
+      <div class="sub-tab ${staleOnly ? 'active' : ''}" onclick="${staleOnly ? '' : 'toggleStaleOnly()'}">Stale</div>
+      <div class="sub-tab ${staleOnly ? '' : 'active'}" onclick="${staleOnly ? 'toggleStaleOnly()' : ''}">All held</div>
     </div>
-    ${stratChips(staleStratSet, 'toggleStaleStrat', staleOnly ? all.filter(isStale) : all)}
-    <div class="card" style="padding:0;overflow:hidden">
-      <div class="scroll-tbl">
-      <table class="tbl">
-        <thead><tr>
-          ${th('Scrip','ticker',staleSort,'setStaleSort')}
-          ${th('Value','curVal',staleSort,'setStaleSort')}
-          ${th('P&L','pnl',staleSort,'setStaleSort','right')}
-        </tr></thead>
-        <tbody>
-          ${rows.map(r => {
-            const st = isStale(r);
-            return `
-            <tr style="${st ? 'background:rgba(239,68,68,0.06)' : ''}">
-              <td>
-                <div style="font-weight:600">${r.ticker} ${pill(r.strategy)} <span style="font-size:var(--fs-10);font-weight:700;color:${st ? 'var(--negative)' : 'var(--positive)'}">${st ? 'STALE' : 'active'}</span></div>
-                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">${r.qty} × ₹${r.avgBuy.toLocaleString('en-IN',{maximumFractionDigits:1})} → ₹${r.cmp.toLocaleString('en-IN',{maximumFractionDigits:1})} · held ${r.daysHeld ? r.daysHeld + 'd' : '—'}${r.strategy === 'S1' ? ' · alert ' + (r.days ? r.days + 'd' : 'never') : ''}</div>
-              </td>
-              <td>
-                <div style="font-weight:600">${fmt(r.curVal)}</div>
-                <div style="font-size:var(--fs-10);color:var(--muted);margin-top:1px">cost ${fmt(r.cost)}</div>
-              </td>
-              <td style="text-align:right">
-                <div style="font-weight:700" class="${cls(r.pnl)}">${fmtN(r.pnl)}</div>
-                <div style="font-size:var(--fs-10);margin-top:1px" class="${cls(r.pnl)}">${r.pnlPct.toFixed(1)}%</div>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div class="card">
+      <div class="hero-top"><div class="hero-label">Stale lots · value</div><div class="hero-ctx">${staleRows2.length} of ${all.length} held</div></div>
+      <div class="hero-val">${fmt(staleVal)}</div>
+      <div class="grid-3" style="margin-bottom:0">
+        <div class="hsub"><div class="sub-label">Invested</div><div class="sub-val" style="font-size:var(--fs-13)">${fmt(staleCost)}</div></div>
+        <div class="hsub"><div class="sub-label">P&amp;L · ${stalePct.toFixed(1)}%</div><div class="sub-val ${cls(stalePnl)}" style="font-size:var(--fs-13)">${fmt(stalePnl)}</div></div>
+        <div class="hsub"><div class="sub-label">S2 buffer</div><div class="sub-val ${cls(buffer)}" style="font-size:var(--fs-13)">${fmt(buffer)}</div>
+          <div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">${stalePnl < 0 ? (buffer >= Math.abs(stalePnl) ? 'covers all' : Math.round(buffer / Math.abs(stalePnl) * 100) + '% covered') : ''}</div></div>
       </div>
+      <div class="sub-filters"><div class="sub-tabs chip-row mini-chips" style="margin-bottom:0">${stChip('S1')}${stChip('S2')}</div></div>
+      ${tools}
+      <div class="hero-foot">S1 stale = no VTP alert in 365 days · S2 stale = held over 30 days · S2 buffer = S2 PAT − EMI paid</div>
+    </div>
+    <div class="card list-card">
+      <div class="lr lr-h lr-st">${hd('Scrip','ticker')}${hd('Held','daysHeld','r')}${hd('Value','curVal','r')}${hd('P&amp;L','pnl','r')}${hd('%','pnlPct','r')}</div>
+      ${rows.length ? rows.map(r => `
+      <div class="lr lr-st" style="${isStale(r) || staleOnly ? '' : 'opacity:0.5'}">
+        <span class="lr-t"><i class="sdot sd-${(r.strategy || '').toLowerCase()}"></i>${r.ticker}</span>
+        <span class="r m sm">${r.daysHeld ? r.daysHeld + 'd' : '—'}</span>
+        <span class="r">${fmtF(r.curVal)}</span>
+        <span class="r b ${cls(r.pnl)}">${fmtF(r.pnl)}</span>
+        <span class="r sm ${cls(r.pnl)}">${r.pnlPct.toFixed(0)}%</span>
+      </div>`).join('') : `<div style="text-align:center;color:var(--muted);padding:24px 0">Nothing here.</div>`}
     </div>`);
 }
 
@@ -1984,14 +2268,15 @@ function renderStale() {
 // saved, or edit it without blindly overwriting it). Sheet ID / Web App URL
 // stay collapsed under Advanced since they're the hardcoded defaults almost
 // nobody ever changes; only expand+fill them if they've been overridden.
-function openSettings() {
+function openSettings(expandAdvanced) {
   document.getElementById('wa-token-input').value = WA_TOKEN || '';
   document.getElementById('sid-input').value = SHEET_ID || '';
   document.getElementById('wa-url-input').value = WA_URL || '';
-  document.getElementById('cfg-advanced').open =
+  document.getElementById('cfg-advanced').open = !!expandAdvanced ||
     (SHEET_ID !== DEFAULT_SHEET_ID) || (WA_URL !== DEFAULT_WA_URL);
   document.getElementById('config').classList.add('open');
 }
+function closeSettings() { document.getElementById('config').classList.remove('open'); }
 function saveSettings() {
   const sid = document.getElementById('sid-input').value.trim();
   const url = document.getElementById('wa-url-input').value.trim();
@@ -2049,6 +2334,7 @@ async function waGet(params) {
 }
 
 async function kiteLogin() {
+  closeSettings();
   try {
     const j = await waGet({ fn: 'ping' });
     if (!j.loginUrl) { alert('KITE_API_KEY not set in Script Properties.'); return; }
@@ -2073,16 +2359,62 @@ function showLogs(lines, title) {
   document.getElementById('logbody').innerHTML =
     (lines && lines.length ? lines : ['(no log lines returned)']).map(l => {
       const e = esc(l);
-      if (/ERROR|FAIL|WARN/i.test(e))                                   return '<span style="color:#f87171">' + e + '</span>';
-      if (/Phase \d|RESET|Executing|Daily check complete|Execution complete/i.test(e)) return '<span style="color:#60a5fa;font-weight:700">' + e + '</span>';
-      if (/PLACE_|REORDER|CANCEL|DELETE_|CLOSE_|CLASSIFY|Closed trade|GTT placed/i.test(e)) return '<span style="color:#34d399">' + e + '</span>';
+      if (/ERROR|FAIL|WARN/i.test(e))                                   return '<span style="color:var(--negative)">' + e + '</span>';
+      if (/Phase \d|RESET|Executing|Daily check complete|Execution complete/i.test(e)) return '<span style="color:var(--s1);font-weight:700">' + e + '</span>';
+      if (/PLACE_|REORDER|CANCEL|DELETE_|CLOSE_|CLASSIFY|Closed trade|GTT placed/i.test(e)) return '<span style="color:var(--positive)">' + e + '</span>';
       return '<span style="color:#8b949e">' + e + '</span>';
     }).join('\n');
   document.getElementById('logmodal').style.display = 'flex';
+  const lb = document.getElementById('logbody'); lb.scrollTop = lb.scrollHeight;
+}
+// Reads the RunLog tab directly (gviz query, ~1s) instead of spinning up the
+// web app (~5–10s). Newest 100 lines first; "Load earlier" pulls 100 more.
+let logView = null;   // { total, offset, lines }
+async function gvizQuery_(sheet, tq) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheet)}&tq=${encodeURIComponent(tq)}&_cb=${Date.now()}`;
+  const txt = await (await fetchWithTimeout_(url, {}, 20000)).text();
+  const j = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+  if (j.status !== 'ok') throw new Error((j.errors && j.errors[0] && j.errors[0].detailed_message) || 'query failed');
+  return j.table;
+}
+async function fetchLogChunk_(offset, limit) {
+  const t = await gvizQuery_('RunLog', `select A,B limit ${limit} offset ${offset}`);
+  return t.rows.map(r => {
+    const ts = r.c[0] ? String(r.c[0].f || r.c[0].v || '') : '';
+    const tm = (ts.split(' ')[1] || ts).replace(/^(\d):/, '0$1:');
+    return tm + '  ' + (r.c[1] ? (r.c[1].v != null ? r.c[1].v : '') : '');
+  });
 }
 async function viewLastLog() {
-  try { const j = await waGet({ fn: 'logs', n: 150 }); showLogs(j.logs, 'RunLog — last ' + (j.logs || []).length + ' lines'); }
-  catch (e) { alert('Could not fetch logs: ' + e.message); }
+  showLogs(['Loading…'], 'Run log');
+  try {
+    const cnt = await gvizQuery_('RunLog', 'select count(B)');
+    const total = (cnt.rows[0] && cnt.rows[0].c[0] && cnt.rows[0].c[0].v) || 0;
+    const offset = Math.max(0, total - 100);
+    logView = { total, offset, lines: await fetchLogChunk_(offset, 100) };
+    renderLogView_();
+  } catch (e) {
+    // fall back to the web app if the sheet read fails
+    try { const j = await waGet({ fn: 'logs', n: 100 }); logView = null; showLogs(j.logs, 'Run log — last ' + (j.logs || []).length + ' lines'); }
+    catch (e2) { showLogs(['Could not fetch logs: ' + e2.message], 'Run log'); }
+  }
+}
+async function loadEarlierLog() {
+  if (!logView || logView.offset <= 0) return;
+  const btn = document.getElementById('log-more'); if (btn) btn.innerHTML = SPIN + ' Loading…';
+  const off = Math.max(0, logView.offset - 100), lim = logView.offset - off;
+  try {
+    logView.lines = (await fetchLogChunk_(off, lim)).concat(logView.lines);
+    logView.offset = off;
+    const body = document.getElementById('logbody'), h0 = body.scrollHeight;
+    renderLogView_();
+    body.scrollTop = body.scrollHeight - h0;   // keep your place
+  } catch (e) { if (btn) btn.textContent = 'Failed — tap to retry'; }
+}
+function renderLogView_() {
+  showLogs(logView.lines, 'Run log — last ' + logView.lines.length + ' lines');
+  const body = document.getElementById('logbody');
+  if (logView.offset > 0) body.insertAdjacentHTML('afterbegin', `<button id="log-more" class="mini-btn" style="display:flex;align-items:center;gap:6px;margin:0 auto 12px" onclick="loadEarlierLog()">${ic('chev')} Load earlier 100</button>`);
 }
 
 // ── Run-button busy tracking + stuck-on-background recovery ──────────────────
@@ -2106,15 +2438,15 @@ function setRunButtonsBusy_(busy) {
 }
 function beginRun_(btnId, runningIcon) {
   const btn = document.getElementById(btnId);
-  const idleIcon = btn ? btn.textContent : '';
-  if (btn) btn.textContent = runningIcon;
+  const idleIcon = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = runningIcon;
   setRunButtonsBusy_(true);
   activeRun = { btnId: btnId, idleIcon: idleIcon, startedAt: Date.now() };
   return idleIcon;
 }
 function endRun_(btnId, idleIcon) {
   const btn = document.getElementById(btnId);
-  if (btn) btn.textContent = idleIcon;
+  if (btn) btn.innerHTML = idleIcon;
   setRunButtonsBusy_(false);
   if (activeRun && activeRun.btnId === btnId) activeRun = null;
 }
@@ -2133,8 +2465,8 @@ document.addEventListener('visibilitychange', () => {
 // separate, slower-cadence op — see runScreener() below (📰 button).
 async function runVtp() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Run Kite Actions now?\n\nSyncs buy-GTTs, fills, exits, retries against Kite. Does not scan Gmail for new screener alerts — use 📰 for that.')) return;
-  const idleIcon = beginRun_('runvtp-btn', '⏳');
+  if (!(await askConfirm('Run Kite Actions now?\n\nSyncs buy-GTTs, fills, exits, retries against Kite. Does not scan Gmail for new screener alerts — use 📰 for that.'))) return;
+  const idleIcon = beginRun_('runvtp-btn', '<svg class="hic spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>');
   try {
     const j = await waPost({ fn: 'run' });
     const pend = (j.actions || []).filter(a => a.status === 'Pending').length;
@@ -2159,7 +2491,8 @@ async function runVtp() {
 // any new watchlist rows get their buy GTTs placed on the next ▶ run.
 async function runScreener() {
   if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
-  if (!confirm('Run Screener Sync now?\n\nScans Gmail for new screener.in alerts and adds them to the watchlist.\nRun ▶ Kite Actions afterward to place buy GTTs for any new rows.')) return;
+  if (!(await askConfirm('Run Screener Sync now?\n\nScans Gmail for new screener.in alerts and adds them to the watchlist.\nRun ▶ Kite Actions afterward to place buy GTTs for any new rows.'))) return;
+  closeSettings();
   const idleIcon = beginRun_('runscreener-btn', '⏳');
   try {
     const j = await waPost({ fn: 'run_screener' });
@@ -2177,7 +2510,7 @@ async function runScreener() {
 // Balance-only refresh — one margins call, no sheets reload, no VTP run
 async function refreshBalance() {
   const el = document.getElementById('bal-refresh');
-  if (el) el.textContent = '⏳';
+  if (el) el.innerHTML = SPIN;
   try {
     state.funds = (await waGet({ fn: 'funds' })).funds || null;
   } catch (e) {
@@ -2189,7 +2522,7 @@ async function refreshBalance() {
 async function syncBalance() {
   const live = state.funds && state.funds.live;
   if (live == null) return;
-  if (!confirm('Write live Kite balance ' + fmt(live) + ' into Yearly Summary → Actual Funds?')) return;
+  if (!(await askConfirm('Write live Kite balance ' + fmt(live) + ' into Yearly Summary → Actual Funds?'))) return;
   try {
     const j = await waPost({ fn: 'sync_balance' });
     // Write went to exactly one cell (Yearly Summary → Actual Funds) whose
@@ -2286,19 +2619,20 @@ async function executeSelected() {
     const qt = document.getElementById('qty-' + a.sheetRow);
     if (px || qt) {
       const o = {};
-      if (px && px.value !== '' && parseFloat(px.value) !== parseFloat(a.recPrice)) o.price = parseFloat(px.value);
-      if (qt && qt.value !== '' && parseInt(qt.value, 10) !== parseInt(a.recQty, 10)) o.qty = parseInt(qt.value, 10);
+      // Only send an override when the tile was actually changed from what it showed
+      if (px && px.value !== '' && parseFloat(px.value) !== parseFloat(px.dataset.orig)) o.price = parseFloat(px.value);
+      if (qt && qt.value !== '' && parseInt(qt.value, 10) !== parseInt(qt.dataset.orig, 10)) o.qty = parseInt(qt.value, 10);
       if (o.price != null || o.qty != null) {
         overrides[a.sheetRow] = o;
         ovNotes.push(a.symbol + (o.price != null ? ' ₹' + o.price : '') + (o.qty != null ? ' qty ' + o.qty : ''));
       }
     }
   }
-  if (!confirm('Execute ' + rows.length + ' action(s)?' +
+  if (!(await askConfirm('Execute ' + rows.length + ' action(s)?' +
       (ovNotes.length ? '\n✏ Edited: ' + ovNotes.join(', ') : '') +
-      '\nThis places/cancels REAL GTT orders on Zerodha.')) return;
+      '\nThis places/cancels REAL GTT orders on Zerodha.', 'Execute'))) return;
   const btn = document.getElementById('exec-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Executing…'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = SPIN + ' Executing…'; }
   try {
     // Row numbers go stale whenever the Actions sheet is rewritten (a VTP run,
     // Propose S2 Buys, another device). Re-read the sheet and remap each
@@ -2412,7 +2746,28 @@ function buildCF_Interest() {
   return cfs;
 }
 
-function setContent(html) { document.getElementById('content').innerHTML = html; }
+// Header: "v2026.09.23a · 07:52" (time of the data on screen; date added if not today)
+function setStamp_(ts) {
+  const t = new Date(ts), today = t.toDateString() === new Date().toDateString();
+  const hm = t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('last-updated').textContent = '· ' + (today ? hm : t.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + hm);
+}
+// askConfirm(msg, okLabel) → Promise<boolean>. First line of msg is the title.
+function askConfirm(msg, okLabel) {
+  return new Promise(res => {
+    const parts = String(msg).split('\n');
+    document.getElementById('ask-title').textContent = parts[0];
+    document.getElementById('ask-msg').textContent = parts.slice(1).join('\n').replace(/^\n+/, '');
+    const ok = document.getElementById('ask-ok'), cancel = document.getElementById('ask-cancel'), box = document.getElementById('ask');
+    ok.textContent = okLabel || 'OK';
+    const done = v => { box.classList.remove('open'); ok.onclick = cancel.onclick = box.onclick = null; res(v); };
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+    box.onclick = e => { if (e.target === box) done(false); };
+    box.classList.add('open');
+  });
+}
+function setContent(html) { document.getElementById('content').innerHTML = (state.loaded ? segHtml_() : '') + html; }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 // Render instantly from the last snapshot; only hit the sheet on first-ever
