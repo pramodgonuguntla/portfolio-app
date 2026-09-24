@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="My Portfolio"/>
@@ -79,7 +79,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
   #app { display: flex; flex-direction: column; height: 100dvh; }
-  #header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  #header { padding-top: calc(12px + env(safe-area-inset-top)) !important; background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   #header h1 { font-size: var(--fs-17); font-weight: 700; letter-spacing: -0.3px; }
   #header h1 .ver { font-size: var(--fs-9); font-weight: 500; color: var(--muted); letter-spacing: 0; vertical-align: middle; margin-left: 4px; }
   #header .sub { font-size: var(--fs-11); color: var(--muted); margin-top: 1px; }
@@ -93,6 +93,9 @@
   .empty-ico .ico { width: 34px; height: 34px; opacity: 0.6; }
   .mini-card.pick { cursor: pointer; }
   .mini-card.pick.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+  #execbar { display: none; flex-shrink: 0; }
+  #execbar.show { display: block; }
+  #execbar .exec-bar { position: static; margin: 0; }
   .exec-bar { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); margin: 0 -16px -16px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
   .exec-bar button { flex: 1; background: var(--accent); border: none; border-radius: 8px; padding: 12px; color: white; font-size: var(--fs-14); font-weight: 600; cursor: pointer; }
   .exec-bar button:disabled { opacity: 0.5; }
@@ -100,7 +103,7 @@
   .cls-sel { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 3px 6px; font-size: var(--fs-11); }
   #local-btn.local-on { border-color: var(--accent2); color: var(--accent2); }
   /* Bottom tab bar — 4 groups; sub-pages switch via the segmented control */
-  #bnav { display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: env(safe-area-inset-bottom); }
+  #bnav { display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   .bn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 7px; min-height: 52px; color: var(--muted); font-size: var(--fs-11); font-weight: 600; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
   .bn .ic { line-height: 1; }
   .bn .ic .ico { width: 23px; height: 23px; vertical-align: 0; }
@@ -339,7 +342,7 @@
   <div id="header">
     <div>
       <h1>My Portfolio</h1>
-      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.23a</span> <span id="last-updated">Loading…</span></div>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.24a</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
@@ -350,6 +353,7 @@
   <div id="content">
     <div id="loading"><div class="spinner"></div><span>Loading portfolio…</span></div>
   </div>
+  <div id="execbar"></div>
   <div id="bnav">
     <div class="bn active" data-g="home" onclick="showGroup('home')"><span class="ic" data-ic="home"></span>Home</div>
     <div class="bn" data-g="progress" onclick="showGroup('progress')"><span class="ic" data-ic="trend"></span>Progress</div>
@@ -1013,6 +1017,7 @@ function initSwipeNav() {
 initSwipeNav();
 function renderTab(tab) {
   updateNavBadge_();
+  if (tab !== 'trades') setExecBar_('');
   if      (tab === 'dashboard') renderDashboard();
   else if (tab === 'ps2')       renderProgressS2();
   else if (tab === 'ps1')       renderProgressS1();
@@ -1606,17 +1611,17 @@ async function submitEmi() {
   const t = parseFloat(document.getElementById('emi-total').value);
   const p = parseFloat(document.getElementById('emi-principal').value) || 0;
   const d = document.getElementById('emi-date').value;
-  if (!t) { alert('Enter the total EMI amount.'); return; }
+  if (!t) { notify('Enter the total EMI amount.'); return; }
   const i = p ? Math.round((t - p) * 100) / 100 : 0;
   if (!(await askConfirm('Record EMI ₹' + t + (p ? ' (principal ₹' + p + ' + interest ₹' + i + ')' : '') + (d ? ' dated ' + d : '') + '?'))) return;
   try {
     const j = await waPost({ fn: 'add_emi', total: t, principal: p || null, interest: i || null, date: d || null });
-    alert('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
+    notify('EMI recorded → ' + (j.month || 'row ' + j.row) + '\nTotal EMIs paid: ₹' + Math.abs(j.emiTotalPaid).toLocaleString('en-IN'));
     emiFormOpen = false;
     // add_emi only ever writes to S2_XIRR — no need to re-pull the other 8 sheets.
     await loadData({ only: ['s2xirr'] }); showTab('ps2');
   } catch (e) {
-    alert('Failed: ' + e.message + '\n\nRefreshing — check Progress S2 for whether it went through.');
+    notify('Failed: ' + e.message + '\n\nRefreshing — check Progress S2 for whether it went through.');
     await loadData({ only: ['s2xirr'] }).catch(() => {});
   }
 }
@@ -1779,12 +1784,12 @@ async function syncProgress() {
     if ((j.invFilled || []).length) extra.push('💰 Inv filled: '  + j.invFilled.join(', '));
     if ((j.splits    || []).length) extra.push('🔀 Split: '       + j.splits.join('; '));
     if (j.projShift) extra.push('📅 Projection shifted +' + j.projShift + ' month(s) → opens at ' + j.projFirst + ' (ahead of schedule)');
-    alert(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
+    notify(msg + (extra.length ? '\n\n' + extra.join('\n') : ''));
     // sync_progress only touches Progress_S1 (lots/splits/projection) and
     // Yearly Summary (Booked Funds bump) — no need to re-pull the rest.
     await loadData({ only: ['prog1', 'summary'] }); showTab('ps1');
   } catch (e) {
-    alert('Sync failed: ' + e.message + '\n\nRefreshing — check Progress S1 for whether it went through.');
+    notify('Sync failed: ' + e.message + '\n\nRefreshing — check Progress S1 for whether it went through.');
     await loadData({ only: ['prog1', 'summary'] }).catch(() => {});
   }
 }
@@ -1795,7 +1800,7 @@ function setProsSort(key) { prosSort = prosSort.key === key ? { key, dir: -prosS
 
 // CMP-only refresh — recomputes the band from live LTPs without a VTP run
 async function refreshProspects() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('pros-refresh');
   if (b) b.innerHTML = SPIN + '<span>Fetching…</span>';
   try {
@@ -1803,7 +1808,7 @@ async function refreshProspects() {
     state.prospects = j.prospects || [];
     renderProspects();
   } catch (e) {
-    alert('Refresh failed: ' + e.message);
+    notify('Refresh failed: ' + e.message);
     renderProspects();
   }
 }
@@ -1812,7 +1817,7 @@ async function refreshProspects() {
 // PG ticks and executes them on the Actions tab.
 // Response: { ok, added, funds, lots, actions }
 async function proposeS2Buys() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!(await askConfirm('Propose S2 buys from available cash?\n\nAdds buy-GTT rows to Actions — nothing is placed until you execute them there.'))) return;
   const b = document.getElementById('pros-gtt');
   if (b) b.innerHTML = SPIN;
@@ -1833,15 +1838,15 @@ async function proposeS2Buys() {
       selectedRows.clear();
     }
     if (j.added) {
-      alert('💰 ' + j.added + ' S2 buy proposal(s) added to Actions\n\ncash ₹' +
+      notify('💰 ' + j.added + ' S2 buy proposal(s) added to Actions\n\ncash ₹' +
             Math.round(j.funds || 0).toLocaleString('en-IN') + ' → ' + (j.lots || 0) + ' lots');
       showTab('trades');
     } else {
-      alert('No S2 buys proposed — not enough free cash for a lot.');
+      notify('No S2 buys proposed — not enough free cash for a lot.');
       renderProspects();
     }
   } catch (e) {
-    alert('Propose S2 buys failed: ' + e.message + '\n\nRefreshing — check Actions for whether it went through.');
+    notify('Propose S2 buys failed: ' + e.message + '\n\nRefreshing — check Actions for whether it went through.');
     await loadData({ only: ['actions'] }).catch(() => {});
     renderProspects();
   }
@@ -1851,13 +1856,13 @@ async function proposeS2Buys() {
 // preview lists the matching GTTs, then a confirm cancels them directly on Kite.
 // Response: { ok, found, cancelled, targets:[{id,ticker,qty,trigger,value}] }
 async function cancelS2Buys() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('pros-cancel');
   if (b) b.innerHTML = SPIN;
   try {
     const p = await waPost({ fn: 'cancel_s2_buys', preview: true });
     const t = p.targets || [];
-    if (t.length === 0) { alert('No open S2 buy GTTs to cancel.'); return; }
+    if (t.length === 0) { notify('No open S2 buy GTTs to cancel.'); return; }
     const lines = t.map(g => '• ' + g.ticker + '  qty ' + g.qty + '  trg ₹' + g.trigger + '  ~₹' + (g.value || 0).toLocaleString('en-IN')).join('\n');
     if (!(await askConfirm('Cancel ' + t.length + ' open S2 buy GTT(s)?\n\n' + lines + '\n\nThis removes them from Kite immediately.'))) return;
     try {
@@ -1874,16 +1879,16 @@ async function cancelS2Buys() {
           selectedRows.clear();
         }
       } catch (e) { /* non-fatal — execute remaps rows anyway */ }
-      alert('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
+      notify('🚫 Cancelled ' + (j.cancelled || 0) + ' of ' + (j.found || 0) + ' S2 buy GTT(s).');
     } catch (e) {
       // The cancel loop over several Kite calls can outlast the phone's
       // connection even after Kite already cancelled the GTTs — resync from
       // the sheet instead of assuming nothing happened.
       await loadData({ only: ['actions', 'prospects'] }).catch(() => {});
-      alert('Cancel request didn\'t confirm cleanly: ' + e.message + '\n\nRefreshed — check S2 Prospects/Actions for the real state before retrying.');
+      notify('Cancel request didn\'t confirm cleanly: ' + e.message + '\n\nRefreshed — check S2 Prospects/Actions for the real state before retrying.');
     }
   } catch (e) {
-    alert('Cancel S2 buys failed: ' + e.message);
+    notify('Cancel S2 buys failed: ' + e.message);
   } finally {
     if (b) b.innerHTML = ic('ban') + '<span>Cancel</span>';
   }
@@ -1991,6 +1996,10 @@ function actRowTap(ev, row) {
   toggleRowSel(row, cb);
   cb.closest('.act-row').classList.toggle('sel', cb.checked);
 }
+function setExecBar_(html) {
+  const eb = document.getElementById('execbar'); if (!eb) return;
+  eb.innerHTML = html || ''; eb.classList.toggle('show', !!html);
+}
 function renderActions() {
   const runTag = state.actionsTitle ? state.actionsTitle.replace('VTP Daily Check — ', '') : '';
   const logBtn = !localWB ? `<span style="cursor:pointer;color:var(--accent);display:inline-flex;align-items:center;gap:4px" onclick="viewLastLog()">${ic('log')} Run log</span>` : '';
@@ -2087,12 +2096,12 @@ function renderActions() {
     <div class="more-toggle ${showDoneActions ? 'open' : ''}" style="border-top:none;margin:14px 2px 10px;padding-top:0" onclick="toggleDoneActions()">
       <span>Done (${done.length})</span><span class="chev">${ic('chev')}</span></div>
     ${showDoneActions ? `<div class="card" style="padding:4px 14px">${done.map(row).join('')}</div>` : ''}` : ''}
-    ${canExec && open.length ? `
-    <div class="exec-bar">
+
+  `);
+  setExecBar_(canExec && open.length ? `<div class="exec-bar">
       <span id="exec-count" style="font-size:var(--fs-13);color:var(--muted);min-width:80px">${selectedRows.size} selected</span>
       <button id="exec-btn" onclick="executeSelected()" ${selectedRows.size === 0 ? 'disabled' : ''}>${ic('zap')} Execute Selected</button>
-    </div>` : ''}
-  `);
+    </div>` : '');
 }
 
 // ── Closed Trades ─────────────────────────────────────────────────────────────
@@ -2162,7 +2171,7 @@ let staleOnly = true;
 let staleSort = { key: 'pnl', dir: 1 };
 function toggleStaleOnly() { staleOnly = !staleOnly; renderStale(); }
 async function refreshStaleCmp() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   const b = document.getElementById('stale-refresh');
   if (b) b.innerHTML = SPIN;
   try {
@@ -2170,13 +2179,13 @@ async function refreshStaleCmp() {
     if (j.stale && j.stale.length) state.stale = j.stale;
     renderStale();
   } catch (e) {
-    alert('CMP refresh failed: ' + e.message);
+    notify('CMP refresh failed: ' + e.message);
     await loadData({ only: ['stale'] }).catch(() => {});
   }
 }
 // Full rebuild — re-scans a year of screener mail, so it takes a while
 async function rerunStale() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!(await askConfirm('Re-run the full Stale analysis?\n\nScans a year of screener alerts + re-prices — takes a minute or two.'))) return;
   const b = document.getElementById('stale-rerun');
   if (b) b.innerHTML = SPIN;
@@ -2184,9 +2193,9 @@ async function rerunStale() {
     const j = await waPost({ fn: 'stale_full' });
     if (j.stale && j.stale.length) state.stale = j.stale;
     renderStale();
-    alert('Stale rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
+    notify('Stale rebuilt — ' + (j.nStale != null ? j.nStale + ' stale of ' + j.total + ' held.' : 'done.'));
   } catch (e) {
-    alert('Rebuild failed: ' + e.message + '\n\nRefreshing — the rebuild may have completed server-side even though the reply failed.');
+    notify('Rebuild failed: ' + e.message + '\n\nRefreshing — the rebuild may have completed server-side even though the reply failed.');
     await loadData({ only: ['stale'] }).catch(() => {});
     renderStale();
   }
@@ -2337,18 +2346,15 @@ async function kiteLogin() {
   closeSettings();
   try {
     const j = await waGet({ fn: 'ping' });
-    if (!j.loginUrl) { alert('KITE_API_KEY not set in Script Properties.'); return; }
+    if (!j.loginUrl) { notify('KITE_API_KEY not set in Script Properties.'); return; }
     const age = j.tokenTs ? 'Token refreshed: ' + j.tokenTs + '\n\n' : '';
     // ping now actually checks the token against Kite (not just "was it set
     // today") — so a real ✅/❌ answer, no more blind "log in again?" every tap.
-    if (j.loggedIn) {
-      if (!confirm('✅ Already logged in to Kite.\n\n' + age + 'Log in again anyway?')) return;
-    } else if (!confirm('❌ Not logged in (or token expired).\n\n' + age + 'Open Kite login now?')) {
-      return;
-    }
-    window.open(j.loginUrl, '_blank');
+    const openLogin = () => window.open(j.loginUrl, '_blank');
+    if (j.loggedIn) await askConfirm('✅ Already logged in to Kite\n' + age + 'Log in again anyway?', 'Log in again', openLogin);
+    else            await askConfirm('❌ Not logged in to Kite\n' + age + 'Token missing or expired. Open Kite login now?', 'Open Kite login', openLogin);
   } catch (e) {
-    alert('Kite login failed to start: ' + e.message);
+    notify('Kite login failed to start: ' + e.message);
   }
 }
 
@@ -2464,7 +2470,7 @@ document.addEventListener('visibilitychange', () => {
 // scan. Safe to run often; this is the ▶ button. Screener alerts are a
 // separate, slower-cadence op — see runScreener() below (📰 button).
 async function runVtp() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!(await askConfirm('Run Kite Actions now?\n\nSyncs buy-GTTs, fills, exits, retries against Kite. Does not scan Gmail for new screener alerts — use 📰 for that.'))) return;
   const idleIcon = beginRun_('runvtp-btn', '<svg class="hic spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>');
   try {
@@ -2478,7 +2484,7 @@ async function runVtp() {
     await loadData({ only: ['repo', 'closed', 'actions'] });
     showTab('trades');
   } catch (e) {
-    alert('Run failed: ' + e.message + '\n\nRefreshing — the check may have completed server-side even though the reply failed.');
+    notify('Run failed: ' + e.message + '\n\nRefreshing — the check may have completed server-side even though the reply failed.');
     await loadData({ only: ['repo', 'closed', 'actions'] }).catch(() => {});
   } finally {
     endRun_('runvtp-btn', idleIcon);
@@ -2490,7 +2496,7 @@ async function runVtp() {
 // Trades changes. Run this once a day (or on demand) before Kite Actions so
 // any new watchlist rows get their buy GTTs placed on the next ▶ run.
 async function runScreener() {
-  if (localWB) { alert('Local file mode — switch back to the sheet first (☁).'); return; }
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
   if (!(await askConfirm('Run Screener Sync now?\n\nScans Gmail for new screener.in alerts and adds them to the watchlist.\nRun ▶ Kite Actions afterward to place buy GTTs for any new rows.'))) return;
   closeSettings();
   const idleIcon = beginRun_('runscreener-btn', '⏳');
@@ -2500,7 +2506,7 @@ async function runScreener() {
     // Screener sync only ever touches VTP_Repo (new/updated watchlist rows).
     await loadData({ only: ['repo'] });
   } catch (e) {
-    alert('Screener sync failed: ' + e.message + '\n\nRefreshing — the sync may have completed server-side even though the reply failed.');
+    notify('Screener sync failed: ' + e.message + '\n\nRefreshing — the sync may have completed server-side even though the reply failed.');
     await loadData({ only: ['repo'] }).catch(() => {});
   } finally {
     endRun_('runscreener-btn', idleIcon);
@@ -2514,7 +2520,7 @@ async function refreshBalance() {
   try {
     state.funds = (await waGet({ fn: 'funds' })).funds || null;
   } catch (e) {
-    alert('Balance fetch failed: ' + e.message);
+    notify('Balance fetch failed: ' + e.message);
   }
   renderDashboard();
 }
@@ -2529,10 +2535,10 @@ async function syncBalance() {
     // value the response already gives us — patch state directly instead of
     // a full reload (state.fundBlock.actual is the only place it's read).
     state.fundBlock.actual = j.balance;
-    alert('Sheet updated: ' + j.cell + ' = ₹' + Math.round(j.balance).toLocaleString('en-IN'));
+    notify('Sheet updated: ' + j.cell + ' = ₹' + Math.round(j.balance).toLocaleString('en-IN'));
     renderDashboard();
   } catch (e) {
-    alert('Sync failed: ' + e.message + '\n\nRefreshing — check Yearly Summary for whether it went through.');
+    notify('Sync failed: ' + e.message + '\n\nRefreshing — check Yearly Summary for whether it went through.');
     await loadData({ only: ['summary'] }).catch(() => {});
   }
 }
@@ -2591,7 +2597,7 @@ async function remapActionRows(rows, verify, classify, overrides) {
   if (lost.length) {
     state.actions = fresh;
     selectedRows.clear();
-    alert('⚠️ The Actions sheet changed — these are no longer pending:\n\n' +
+    notify('⚠️ The Actions sheet changed — these are no longer pending:\n\n' +
           lost.join('\n') + '\n\nThe list has been refreshed; re-tick and execute.');
     return null;
   }
@@ -2600,7 +2606,7 @@ async function remapActionRows(rows, verify, classify, overrides) {
 }
 
 async function executeSelected() {
-  if (localWB) { alert('Local file mode — execution needs the live sheet (☁).'); return; }
+  if (localWB) { notify('Local file mode — execution needs the live sheet (☁).'); return; }
   if (selectedRows.size === 0) return;
   let rows = [...selectedRows];
   let verify = {}, classify = {}, overrides = {};
@@ -2611,7 +2617,7 @@ async function executeSelected() {
     if (a.action === 'CLASSIFY_FILL') {
       const sel = document.getElementById('cls-' + a.sheetRow);
       const v = sel ? sel.value : '';
-      if (v !== 'S1' && v !== 'S2') { alert('Pick S1 or S2 for ' + a.symbol + ' first.'); return; }
+      if (v !== 'S1' && v !== 'S2') { notify('Pick S1 or S2 for ' + a.symbol + ' first.'); return; }
       classify[a.sheetRow] = v;
     }
     // Edited ✏ price/qty → overrides (only when changed from the recommended value)
@@ -2651,7 +2657,7 @@ async function executeSelected() {
     // Orders can go through on Kite/GAS even if the reply back to the phone
     // fails to parse — resync from the sheet rather than leaving stale rows
     // that could be re-executed by mistake.
-    alert('Execute failed: ' + e.message + '\n\nRefreshing — check Actions/Open Positions for what actually went through before retrying.');
+    notify('Execute failed: ' + e.message + '\n\nRefreshing — check Actions/Open Positions for what actually went through before retrying.');
     await loadData({ only: ['repo', 'closed', 'actions'] }).catch(() => { renderActions(); });
   }
 }
@@ -2752,8 +2758,22 @@ function setStamp_(ts) {
   const hm = t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   document.getElementById('last-updated').textContent = '· ' + (today ? hm : t.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + hm);
 }
+// notify(msg) — OK-only version of the same sheet; replaces the tiny native alert()
+function notify(msg) {
+  return new Promise(res => {
+    const parts = String(msg).split('\n');
+    document.getElementById('ask-title').textContent = parts[0];
+    document.getElementById('ask-msg').textContent = parts.slice(1).join('\n').replace(/^\n+/, '');
+    const ok = document.getElementById('ask-ok'), cancel = document.getElementById('ask-cancel'), box = document.getElementById('ask');
+    ok.textContent = 'OK'; cancel.style.display = 'none';
+    const done = () => { box.classList.remove('open'); cancel.style.display = ''; ok.onclick = box.onclick = null; res(); };
+    ok.onclick = done;
+    box.onclick = e => { if (e.target === box) done(); };
+    box.classList.add('open');
+  });
+}
 // askConfirm(msg, okLabel) → Promise<boolean>. First line of msg is the title.
-function askConfirm(msg, okLabel) {
+function askConfirm(msg, okLabel, onOkSync) {
   return new Promise(res => {
     const parts = String(msg).split('\n');
     document.getElementById('ask-title').textContent = parts[0];
@@ -2761,7 +2781,8 @@ function askConfirm(msg, okLabel) {
     const ok = document.getElementById('ask-ok'), cancel = document.getElementById('ask-cancel'), box = document.getElementById('ask');
     ok.textContent = okLabel || 'OK';
     const done = v => { box.classList.remove('open'); ok.onclick = cancel.onclick = box.onclick = null; res(v); };
-    ok.onclick = () => done(true);
+    // onOkSync runs inside the tap itself (needed for window.open on iPhone)
+    ok.onclick = () => { if (onOkSync) onOkSync(); done(true); };
     cancel.onclick = () => done(false);
     box.onclick = e => { if (e.target === box) done(false); };
     box.classList.add('open');
