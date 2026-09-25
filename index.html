@@ -346,7 +346,7 @@
   <div id="header">
     <div>
       <h1>My Portfolio</h1>
-      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.25a</span> <span id="last-updated">Loading…</span></div>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.25b</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
@@ -1975,7 +1975,7 @@ function renderProspects() {
         <span class="r">${Math.round(r.cmp).toLocaleString('en-IN')}</span>
         <span class="r m">${r.low90 ? Math.round(r.low90).toLocaleString('en-IN') : '—'}</span>
         <span class="r b" style="color:${dim ? 'inherit' : r.aboveLowPct == null ? 'var(--muted)' : r.aboveLowPct <= 5 ? 'var(--positive)' : r.aboveLowPct <= 12 ? 'var(--warn)' : 'var(--muted)'}">${r.aboveLowPct == null ? '—' : r.aboveLowPct.toFixed(1) + '%'}</span>
-        <span class="r ${dim ? 'm sm' : ''}">${dim ? why(r) : fmtF(r.value)}</span>
+        <span class="r ${dim ? 'm sm' : 'b'}">${dim ? why(r) : (r.away != null && r.away !== '' ? Number(r.away).toFixed(1) + '%' : '—')}</span>
       </div>`;
   setContent(`
     <div class="card">
@@ -1987,10 +1987,10 @@ function renderProspects() {
         <div class="hsub"><div class="sub-label">Nearest low</div><div class="sub-val pos">${nearest != null ? nearest.toFixed(1) + '%' : '—'}</div></div>
       </div>
       ${prosRefreshBtn()}
-      <div class="hero-foot">To buy = not held, not Avoid, CMP at least alert − 5% · Low = 90-day low · ranked by % above it (↓ = within 1%) · qty sized to ~₹50k${noLow ? ` · <b style="color:var(--warn)">${noLow} without a 90D low — tap 90D lows</b>` : ''}</div>
+      <div class="hero-foot">To buy = not held, not Avoid, CMP at least alert − 5% · Low = 90-day low · Above = % above that low, used for ranking (↓ = within 1%) · To S1 = % above the S1 buy trigger · qty sized to ~₹50k${noLow ? ` · <b style="color:var(--warn)">${noLow} without a 90D low — tap 90D lows</b>` : ''}</div>
     </div>
     <div class="card list-card">
-      <div class="lr lr-h lr-pr">${hd('Scrip','ticker')}${hd('CMP','cmp','r')}${hd('Low','low90','r')}${hd('Above','aboveLowPct','r')}${hd('Amt','value','r')}</div>
+      <div class="lr lr-h lr-pr">${hd('Scrip','ticker')}${hd('CMP','cmp','r')}${hd('Low','low90','r')}${hd('Above','aboveLowPct','r')}${hd('To S1','away','r')}</div>
       ${short.map(r => row(r, false)).join('')}
       ${rest.length ? `<div class="lr lr-pr lr-sep"><span>Skipped · ${rest.length}</span><span></span><span></span><span></span><span class="r">why</span></div>` : ''}
       ${rest.map(r => row(r, true)).join('')}
