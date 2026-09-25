@@ -263,7 +263,7 @@
   .list-card > .lr > span:first-child { padding-left: 0; }
   .list-card > .lr:last-child > span { border-bottom: none; }
   .list-card > .lr-h > span { padding-top: 9px; padding-bottom: 9px; }
-  .list-card > .lr > .lr-t { display: table-cell; white-space: normal; overflow-wrap: anywhere; }
+  .list-card > .lr > .lr-t { display: table-cell; white-space: nowrap; }
   .lr-t .sdot { margin-right: 6px; vertical-align: 1px; }
   .lr-t .nogtt { margin-left: 5px; vertical-align: 1px; }
   .lr { display: grid; gap: 6px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-13); }
@@ -274,6 +274,10 @@
   .qbtns { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
   .qbtn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: var(--fs-13); font-weight: 600; cursor: pointer; white-space: nowrap; }
   .qbtn .ico { width: 16px; height: 16px; }
+  .qbtns-2 { grid-template-columns: 1fr 1fr; }
+  .list-card > .lr-pr > span { padding-left: 7px; }
+  .list-card > .lr-pr > span:first-child { padding-left: 0; }
+  .list-card > .lr-sep > span { padding-top: 16px; font-size: var(--fs-11); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
   .lr-cl   { grid-template-columns: minmax(0,1fr) 54px 54px 64px; gap: 6px; }
   .lr-wl   { grid-template-columns: minmax(0,1fr) 66px 30px 62px; gap: 6px; }
   .lr > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -342,7 +346,7 @@
   <div id="header">
     <div>
       <h1>My Portfolio</h1>
-      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.24c</span> <span id="last-updated">Loading…</span></div>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.25a</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
@@ -357,8 +361,8 @@
   <div id="bnav">
     <div class="bn active" data-g="home" onclick="showGroup('home')"><span class="ic" data-ic="home"></span>Home</div>
     <div class="bn" data-g="progress" onclick="showGroup('progress')"><span class="ic" data-ic="trend"></span>Progress</div>
-    <div class="bn" data-g="actions" onclick="showGroup('actions')"><span class="ic" data-ic="zap"></span>Actions<span class="nb" id="nav-badge" style="display:none"></span></div>
     <div class="bn" data-g="portfolio" onclick="showGroup('portfolio')"><span class="ic" data-ic="case"></span>Portfolio</div>
+    <div class="bn" data-g="actions" onclick="showGroup('actions')"><span class="ic" data-ic="zap"></span>Actions<span class="nb" id="nav-badge" style="display:none"></span></div>
   </div>
 </div>
 <div id="logmodal" style="display:none;position:fixed;inset:0;background:rgba(3,7,18,0.96);z-index:200;flex-direction:column">
@@ -896,7 +900,7 @@ async function loadData(opts) {
     // (positive CMP/trigger/away) so foreign rows can never render here.
     state.prospects = (prospectRows || [])
       .filter(r => val(r[1]) && String(val(r[1])).trim() !== 'Ticker' &&
-                   parseAmt(val(r[2])) > 0 && parseAmt(val(r[3])) > 0 && parseAmt(val(r[4])) > 0)
+                   parseAmt(val(r[2])) > 0 && parseAmt(val(r[3])) > 0)
       .map(r => ({
         ref:     String(disp(r[0]) || ''),
         ticker:  String(val(r[1])).trim(),
@@ -907,8 +911,10 @@ async function loadData(opts) {
         value:   parseAmt(val(r[6])),
         held:    String(val(r[7]) || '').trim() === 'YES',
         updated: disp(r[8]),
-        lowest:  parseAmt(val(r[9])),
-      }));
+        low90:   parseAmt(val(r[9])),
+        avoid:   String(val(r[10]) || '').trim(),
+        alert:   parseAmt(val(r[11])),
+      })).map(normPros_);
 
     // ── Live Kite funds (best-effort; token may be expired) ───────────────────
     state.funds = null;
@@ -938,13 +944,13 @@ async function loadData(opts) {
 }
 
 // ── Tab routing ───────────────────────────────────────────────────────────────
-const TAB_ORDER = ['dashboard','ps2','ps1','trades','prospects','open','closed','stale'];
+const TAB_ORDER = ['dashboard','ps1','ps2','prospects','open','closed','stale','trades'];   // swipe order = bottom-bar order
 const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Bottom-nav groups → the underlying pages (TAB_ORDER stays the swipe order)
 const NAV_GROUPS = {
   home:      { tabs: ['dashboard'] },
-  progress:  { tabs: ['ps2', 'ps1'],                         labels: { ps2: 'S2', ps1: 'S1' } },
+  progress:  { tabs: ['ps1', 'ps2'],                         labels: { ps1: 'S1', ps2: 'S2' } },
   actions:   { tabs: ['trades'] },
   portfolio: { tabs: ['prospects', 'open', 'closed', 'stale'], labels: { prospects: 'Prospects', open: 'Open', closed: 'Closed', stale: 'Stale' } },
 };
@@ -1795,9 +1801,45 @@ async function syncProgress() {
 }
 
 // ── S2 Prospects ──────────────────────────────────────────────────────────────
-let prosSort = { key: 'away', dir: 1 };
+let prosSort = { key: 'aboveLowPct', dir: 1 };
+// S2 shortlist (same rule as GAS selectS2Candidates_): not held, not Avoid,
+// CMP ≥ alert × 0.95 (no upper cap). Ranked by closeness to the 90-day low.
+const S2_BELOW_ALERT_PCT = 5;
+function normPros_(r) {
+  const low90 = parseFloat(r.low90 != null ? r.low90 : r.lowest) || 0;
+  const alert = parseFloat(r.alert) || 0;
+  const cmp   = parseFloat(r.cmp) || 0;
+  const avoid = String(r.avoid || '').trim();
+  const above = r.aboveLowPct != null ? r.aboveLowPct : (low90 > 0 && cmp > 0 ? Math.round((cmp / low90 - 1) * 1000) / 10 : null);
+  const short = r.shortlisted != null ? !!r.shortlisted
+    : (cmp > 0 && !r.held && !avoid && (alert > 0 ? cmp >= alert * (1 - S2_BELOW_ALERT_PCT / 100) : (parseFloat(r.away) || 0) > 10));
+  return Object.assign({}, r, { low90, alert, avoid, aboveLowPct: above, shortlisted: short });
+}
 function setProsSort(key) { prosSort = prosSort.key === key ? { key, dir: -prosSort.dir } : { key, dir: 1 }; renderProspects(); }
 
+// Refresh the 90-day-low cache (resumable server side: loop while remaining > 0),
+// then refresh prospects so the list re-ranks on the new lows.
+async function refreshLows() {
+  if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
+  const b = document.getElementById('pros-lows');
+  const set = t => { const el = document.getElementById('pros-lows'); if (el) el.innerHTML = SPIN + '<span>' + t + '</span>'; };
+  set('Lows…');
+  let j = null, failed = [];
+  try {
+    for (let i = 0; i < 10; i++) {
+      j = await waPost({ fn: 'refresh_lows' });
+      failed = j.failed || failed;
+      set((j.have || 0) + '/' + (j.total || 0));
+      if (!j.remaining) break;
+    }
+    await refreshProspects();
+    if (j && j.remaining) notify('90-day lows partly done\n' + j.have + ' of ' + j.total + ' fetched — tap Lows again to finish.');
+    else if (failed.length) notify('90-day lows updated\nCould not fetch: ' + failed.join(', '));
+  } catch (e) {
+    notify('Refresh lows failed: ' + e.message);
+    renderProspects();
+  }
+}
 // CMP-only refresh — recomputes the band from live LTPs without a VTP run
 async function refreshProspects() {
   if (localWB) { notify('Local file mode — switch back to the sheet first (☁).'); return; }
@@ -1805,7 +1847,7 @@ async function refreshProspects() {
   if (b) b.innerHTML = SPIN + '<span>Fetching…</span>';
   try {
     const j = await waPost({ fn: 'prospects' });
-    state.prospects = j.prospects || [];
+    state.prospects = (j.prospects || []).map(normPros_);
     renderProspects();
   } catch (e) {
     notify('Refresh failed: ' + e.message);
@@ -1895,8 +1937,9 @@ async function cancelS2Buys() {
 }
 
 const prosRefreshBtn = () => localWB ? '' : `
-  <div class="qbtns">
-    <button id="pros-refresh" class="qbtn" onclick="refreshProspects()">${ic('refresh')}<span>Refresh</span></button>
+  <div class="qbtns qbtns-2">
+    <button id="pros-refresh" class="qbtn" onclick="refreshProspects()">${ic('refresh')}<span>Refresh CMP</span></button>
+    <button id="pros-lows" class="qbtn" onclick="refreshLows()">${ic('trend')}<span>90D lows</span></button>
     <button id="pros-gtt" class="qbtn" style="color:var(--accent)" onclick="proposeS2Buys()">${ic('plus')}<span>Propose</span></button>
     <button id="pros-cancel" class="qbtn" style="color:var(--negative)" onclick="cancelS2Buys()">${ic('ban')}<span>Cancel</span></button>
   </div>`;
@@ -1904,50 +1947,53 @@ const prosRefreshBtn = () => localWB ? '' : `
 // Inline "buy in Kite" flow removed 2026-08-02 — orders are placed in Kite directly.
 
 function renderProspects() {
-  const rows = state.prospects || [];
+  const rows = (state.prospects || []).map(normPros_);   // also upgrades rows from an older cached snapshot
   if (rows.length === 0) {
     setContent(`
       <div class="card">${prosRefreshBtn()}</div>
       <div class="card" style="text-align:center;padding:32px;color:var(--muted)">
         <div class="empty-ico" style="margin-bottom:8px">${ic('search')}</div>
-        <div>No watchlist stocks in the 9–13% band right now.</div>
+        <div>No S2 prospects right now.</div>
         <div style="font-size:var(--fs-11);margin-top:6px">Refresh CMP re-checks live prices without a full VTP run.</div>
       </div>`);
     return;
   }
-  // Held stocks sink to the bottom regardless of column sort
-  const base   = sortRows(rows, prosSort.key, prosSort.dir, { ticker: r => r.ticker });
-  const sorted = [...base.filter(r => !r.held), ...base.filter(r => r.held)];
+  // Shortlisted first (ranked by the chosen column — default: closest to 90D low);
+  // held / Avoid / below-alert stocks stay visible but dimmed at the bottom.
+  const getters = { ticker: r => r.ticker, aboveLowPct: r => (r.aboveLowPct == null ? 9e9 : r.aboveLowPct) };
+  const short  = sortRows(rows.filter(r => r.shortlisted),  prosSort.key, prosSort.dir, getters);
+  const rest   = sortRows(rows.filter(r => !r.shortlisted), prosSort.key, prosSort.dir, getters);
   const hd = (label, key, cls) => `<span class="${cls || ''} ${prosSort.key === key ? 'on' : ''}" onclick="setProsSort('${key}')">${label}${prosSort.key === key ? (prosSort.dir === 1 ? ' ↑' : ' ↓') : ''}</span>`;
-  const cands = rows.filter(r => !r.held);
-  const nearest = cands.length ? Math.min(...cands.map(r => r.away)) : null;
+  const withLow = short.filter(r => r.aboveLowPct != null);
+  const nearest = withLow.length ? Math.min(...withLow.map(r => r.aboveLowPct)) : null;
+  const noLow   = rows.filter(r => !r.low90).length;
   const upd = (rows.find(r => r.updated) || {}).updated || '';
+  const why = r => r.held ? 'held' : r.avoid ? 'avoid' : '< alert';
+  const row = (r, dim) => `
+      <div class="lr lr-pr" style="${dim ? 'opacity:0.45' : ''}">
+        <span class="lr-t">${r.ticker}${!dim && r.aboveLowPct != null && r.aboveLowPct <= 1 ? `<span class="pos" title="At its 90-day low" style="font-weight:800;margin-left:3px">↓</span>` : ''}</span>
+        <span class="r">${Math.round(r.cmp).toLocaleString('en-IN')}</span>
+        <span class="r m">${r.low90 ? Math.round(r.low90).toLocaleString('en-IN') : '—'}</span>
+        <span class="r b" style="color:${dim ? 'inherit' : r.aboveLowPct == null ? 'var(--muted)' : r.aboveLowPct <= 5 ? 'var(--positive)' : r.aboveLowPct <= 12 ? 'var(--warn)' : 'var(--muted)'}">${r.aboveLowPct == null ? '—' : r.aboveLowPct.toFixed(1) + '%'}</span>
+        <span class="r ${dim ? 'm sm' : ''}">${dim ? why(r) : fmtF(r.value)}</span>
+      </div>`;
   setContent(`
     <div class="card">
       <div class="hero-top"><div class="hero-label">S2 prospects</div><div class="hero-ctx">${upd ? 'CMP ' + upd.replace(/^\d{4}-\d{2}-\d{2}\s*/, '') : ''}</div></div>
-      <div class="hero-val">${cands.length} <span style="font-size:var(--fs-15);color:var(--muted);font-weight:600">to buy</span></div>
+      <div class="hero-val">${short.length} <span style="font-size:var(--fs-15);color:var(--muted);font-weight:600">to buy</span></div>
       <div class="grid-3" style="margin-bottom:0">
-        <div class="hsub"><div class="sub-label">In band</div><div class="sub-val">${rows.length}</div></div>
-        <div class="hsub"><div class="sub-label">Held · skip</div><div class="sub-val" style="color:var(--muted)">${rows.length - cands.length}</div></div>
-        <div class="hsub"><div class="sub-label">Nearest</div><div class="sub-val pos">${nearest != null ? nearest.toFixed(1) + '%' : '—'}</div></div>
+        <div class="hsub"><div class="sub-label">In list</div><div class="sub-val">${rows.length}</div></div>
+        <div class="hsub"><div class="sub-label">Skipped</div><div class="sub-val" style="color:var(--muted)">${rest.length}</div></div>
+        <div class="hsub"><div class="sub-label">Nearest low</div><div class="sub-val pos">${nearest != null ? nearest.toFixed(1) + '%' : '—'}</div></div>
       </div>
       ${prosRefreshBtn()}
-      <div class="hero-foot">Stocks 9–13% above their buy trigger · qty sized to ~₹50k · ↓ = at its recent low · held stocks dimmed at the bottom · Propose adds buy GTTs to Actions, Cancel removes open S2 buy GTTs</div>
+      <div class="hero-foot">To buy = not held, not Avoid, CMP at least alert − 5% · Low = 90-day low · ranked by % above it (↓ = within 1%) · qty sized to ~₹50k${noLow ? ` · <b style="color:var(--warn)">${noLow} without a 90D low — tap 90D lows</b>` : ''}</div>
     </div>
     <div class="card list-card">
-      <div class="lr lr-h lr-pr">${hd('Scrip','ticker')}${hd('CMP','cmp','r')}${hd('Away','away','r')}${hd('Qty','qty','r')}<span class="r">Amt</span></div>
-      ${sorted.map(r => {
-        const nearness = Math.max(0, Math.min(1, (13 - r.away) / 4));  // 13%→0, 9%→1
-        const awayColor = nearness > 0.66 ? 'var(--positive)' : nearness > 0.33 ? 'var(--warn)' : 'var(--muted)';
-        const atLow = r.lowest && r.cmp <= r.lowest * 1.01;
-        return `
-      <div class="lr lr-pr" style="${r.held ? 'opacity:0.45' : ''}">
-        <span class="lr-t">${r.ticker}${atLow ? `<span class="pos" title="At its recent low" style="font-weight:800">↓</span>` : ''}</span>
-        <span class="r">${Math.round(r.cmp).toLocaleString('en-IN')}</span>
-        <span class="r b" style="color:${awayColor}">${r.away.toFixed(1)}%</span>
-        <span class="r m">${r.qty}</span>
-        <span class="r">${fmtF(r.value)}</span>
-      </div>`; }).join('')}
+      <div class="lr lr-h lr-pr">${hd('Scrip','ticker')}${hd('CMP','cmp','r')}${hd('Low','low90','r')}${hd('Above','aboveLowPct','r')}${hd('Amt','value','r')}</div>
+      ${short.map(r => row(r, false)).join('')}
+      ${rest.length ? `<div class="lr lr-pr lr-sep"><span>Skipped · ${rest.length}</span><span></span><span></span><span></span><span class="r">why</span></div>` : ''}
+      ${rest.map(r => row(r, true)).join('')}
     </div>
   `);
 }
@@ -2147,7 +2193,7 @@ function renderClosed(selectedFY) {
       <div class="lr lr-h lr-cl">${hd('Scrip','scrip')}${hd('Buy','buyDate')}${hd('Sell','sellDate')}${hd('PAT','pat','r')}</div>
       ${rows.length ? rows.map(r => `
       <div class="lr lr-cl">
-        <span class="lr-t"><i class="sdot sd-${(r.strategy || '').toLowerCase()}"></i>${r.scrip}</span>
+        <span class="lr-t"><i class="sdot sd-${(r.strategy || '').toLowerCase()}"></i>${String(r.scrip).replace(/→/g, '→<wbr>')}</span>
         <span class="m sm">${sd(r.buyDate)}</span>
         <span class="m sm">${sd(r.sellDate)}</span>
         <span class="r b ${cls(r.pat)}">${fmtF(r.pat)}</span>
@@ -2318,7 +2364,7 @@ async function waParseJson_(res) {
 // already completed server-side (placed a real order / written a sheet), so
 // blindly re-sending could double it. The catch blocks at each call site
 // already say as much and resync from the sheet instead of retrying blind.
-const WA_POST_TIMEOUT_MS_ = { run: 150000, run_screener: 90000, execute: 120000, stale_full: 120000, s2_buys: 60000 };
+const WA_POST_TIMEOUT_MS_ = { run: 150000, run_screener: 90000, execute: 120000, stale_full: 120000, s2_buys: 60000, prospects: 60000, refresh_lows: 70000 };
 async function waPost(payload) {
   if (!WA_URL) throw new Error('Web App URL not set — tap ⚙ and add URL + token');
   payload.token = WA_TOKEN;
