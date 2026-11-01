@@ -108,6 +108,7 @@
   #bnav { display: flex; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; padding-bottom: 0; }
   .bn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 6px; min-height: 62px; color: var(--muted); font-size: var(--fs-11); font-weight: 600; cursor: pointer; position: relative; -webkit-tap-highlight-color: transparent; }
   .bn .ic { line-height: 1; }
+  body.standalone #bnav { padding-bottom: 20px; }   /* home-screen app: room for the iPhone home bar, like other apps */
   .bn .ic .ico { width: 27px; height: 27px; vertical-align: 0; }
   .bn.active { color: var(--accent); }
   .bn .nb { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: var(--fs-10); font-weight: 700; line-height: 17px; text-align: center; }
@@ -348,7 +349,7 @@
   <div id="header">
     <div>
       <h1>My Portfolio</h1>
-      <div class="sub"><span class="ver" style="margin-left:0">v2026.11.01a</span> <span id="last-updated">Loading…</span></div>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.11.01b</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
@@ -462,6 +463,8 @@ function applyTheme(t) {
 }
 function toggleTheme() { applyTheme(document.body.classList.contains('light') ? 'dark' : 'light'); }
 applyTheme(localStorage.getItem('vtp_theme') || 'light');
+// Opened from the home-screen icon (not Safari)? → reserve space under the tab bar
+if (window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)) document.body.classList.add('standalone');
 
 // Repo status buckets
 const HELD_STATUSES = new Set(['in_holdings', 'prior_quarter', 'other_strategy', 'not_in_kite']);
