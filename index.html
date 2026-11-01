@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="My Portfolio"/>
 <title>My Portfolio</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<link rel="icon" type="image/png" href="favicon.png"/>
 <style>
   :root {
     --bg:        #0a0f1e;
@@ -346,7 +348,7 @@
   <div id="header">
     <div>
       <h1>My Portfolio</h1>
-      <div class="sub"><span class="ver" style="margin-left:0">v2026.09.25b</span> <span id="last-updated">Loading…</span></div>
+      <div class="sub"><span class="ver" style="margin-left:0">v2026.11.01a</span> <span id="last-updated">Loading…</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
       <button id="runvtp-btn" onclick="runVtp()" title="Run Kite Actions (buy-GTT sync, fills, exits)" style="border-color:rgba(16,185,129,0.5);color:var(--accent2)"><svg class="hic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke-width="1.6"/></svg></button>
@@ -1677,7 +1679,7 @@ function renderProgressS2() {
       <div class="hero-top" style="margin-bottom:10px"><div class="hero-label" style="color:${good ? 'var(--positive)' : 'var(--negative)'}">${title}</div></div>
       <div class="grid-3" style="margin-bottom:0">
         <div class="hsub"><div class="sub-label">Target</div><div class="sub-val">${fmt(T)}</div></div>
-        <div class="hsub"><div class="sub-label">Actual</div><div class="sub-val" style="color:${A > 0 ? (good ? 'var(--positive)' : 'var(--negative)') : 'var(--muted)'}">${A > 0 ? fmt(A) : '—'}</div></div>
+        <div class="hsub"><div class="sub-label">Actual</div><div class="sub-val" style="color:${A !== 0 ? (good ? 'var(--positive)' : 'var(--negative)') : 'var(--muted)'}">${A !== 0 ? fmt(A) : '—'}</div></div>
         <div class="hsub"><div class="sub-label">${good ? 'Surplus' : 'Shortfall'}</div><div class="sub-val" style="color:${good ? 'var(--positive)' : 'var(--negative)'}">${fmt(Math.abs(diff))}</div>${sub ? `<div style="font-size:var(--fs-11);color:var(--muted);margin-top:2px">${sub}</div>` : ''}</div>
       </div>
     </div>`;
@@ -1762,13 +1764,14 @@ function renderProgressS2() {
         <tbody>${(state.progress2||[]).map(r => {
           const hit = r.actual >= r.target && r.actual > 0;
           const partial = r.actual > 0 && r.actual < r.target;
-          const rowClr = hit ? 'rgba(16,185,129,0.08)' : partial ? 'rgba(251,191,36,0.08)' : '';
+          const lossM   = r.actual < 0;
+          const rowClr = hit ? 'rgba(16,185,129,0.08)' : partial ? 'rgba(251,191,36,0.08)' : lossM ? 'rgba(239,68,68,0.08)' : '';
           return `<tr style="background:${rowClr}">
             <td style="font-weight:600">${r.month}</td>
             <td style="text-align:right">${fmtF(r.target)}</td>
-            <td style="text-align:right" class="${r.actual>0?cls(r.actual-r.target+0.01):''}">${r.actual>0?fmtF(r.actual):'—'}</td>
+            <td style="text-align:right" class="${r.actual!==0?cls(r.actual-r.target+0.01):''}">${r.actual!==0?fmtF(r.actual):'—'}</td>
             <td style="text-align:right;color:var(--muted)">${fmtF(r.cum_target)}</td>
-            <td style="text-align:right" class="${r.cum_actual>0?cls(r.cum_actual-r.cum_target+0.01):''}">${r.cum_actual>0?fmtF(r.cum_actual):'—'}</td>
+            <td style="text-align:right" class="${r.cum_actual!==0?cls(r.cum_actual-r.cum_target+0.01):''}">${r.cum_actual!==0?fmtF(r.cum_actual):'—'}</td>
           </tr>`;
         }).join('')}</tbody>
       </table>
